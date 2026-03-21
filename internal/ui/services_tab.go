@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
+	"time"
 
 	"github.com/Lucky2356/system-hub/internal/system"
 
@@ -28,6 +29,11 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 	var allServices []system.ServiceInfo
 	var filteredServices []system.ServiceInfo
 	selectedIndex := -1
+	lastSelectedServiceName := ""
+
+	autoRefreshCheck := widget.NewCheck("Auto refresh (3 сек)", nil)
+	stopAutoRefresh := make(chan struct{})
+	autoRefreshStarted := false
 
 	detailsButton := widget.NewButton("Подробнее", nil)
 	logsButton := widget.NewButton("Logs", nil)
@@ -127,10 +133,27 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 	)
 
 	refreshList := func() {
-		selectedIndex = -1
 		filteredServices = filterServices(searchEntry.Text)
-		serviceList.UnselectAll()
+
+		restoredIndex := -1
+		if lastSelectedServiceName != "" {
+			for i, svc := range filteredServices {
+				if svc.Name == lastSelectedServiceName {
+					restoredIndex = i
+					break
+				}
+			}
+		}
+
+		selectedIndex = restoredIndex
 		serviceList.Refresh()
+
+		if restoredIndex >= 0 {
+			serviceList.Select(restoredIndex)
+		} else {
+			serviceList.UnselectAll()
+		}
+
 		updateActionButtons()
 
 		if len(filteredServices) == 0 {
@@ -138,13 +161,20 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 			return
 		}
 
-		statusLabel.SetText(fmt.Sprintf("Статус: %d сервисов", len(filteredServices)))
+		statusLabel.SetText(
+			fmt.Sprintf(
+				"Статус: %d сервисов | обновлено %s",
+				len(filteredServices),
+				time.Now().Format("15:04:05"),
+			),
+		)
 	}
 
 	showErrorState := func(err error) {
 		allServices = nil
 		filteredServices = nil
 		selectedIndex = -1
+		lastSelectedServiceName = ""
 		serviceList.UnselectAll()
 		serviceList.Refresh()
 		updateActionButtons()
@@ -236,16 +266,43 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 
 	serviceList.OnSelected = func(id widget.ListItemID) {
 		selectedIndex = id
+		if id >= 0 && id < len(filteredServices) {
+			lastSelectedServiceName = filteredServices[id].Name
+		}
 		updateActionButtons()
 	}
 
 	serviceList.OnUnselected = func(id widget.ListItemID) {
 		selectedIndex = -1
+		lastSelectedServiceName = ""
 		updateActionButtons()
 	}
 
-	searchEntry.OnChanged = func(text string) {
-		refreshList()
+	autoRefreshCheck.OnChanged = func(checked bool) {
+		if !checked {
+			return
+		}
+
+		if autoRefreshStarted {
+			return
+		}
+		autoRefreshStarted = true
+
+		go func() {
+			ticker := time.NewTicker(3 * time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					if autoRefreshCheck.Checked {
+						refreshServices()
+					}
+				case <-stopAutoRefresh:
+					return
+				}
+			}
+		}()
 	}
 
 	detailsButton.OnTapped = func() {
@@ -298,6 +355,7 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 
 	actionsRow := container.NewHBox(
 		refreshButton,
+		autoRefreshCheck,
 		detailsButton,
 		logsButton,
 		startButton,

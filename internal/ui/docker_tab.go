@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
+	"time"
 
 	"github.com/Lucky2356/system-hub/internal/system"
 
@@ -28,6 +29,11 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 	var allContainers []system.DockerContainerInfo
 	var filteredContainers []system.DockerContainerInfo
 	selectedIndex := -1
+	lastSelectedContainerName := ""
+
+	autoRefreshCheck := widget.NewCheck("Auto refresh (3 сек)", nil)
+	stopAutoRefresh := make(chan struct{})
+	autoRefreshStarted := false
 
 	detailsButton := widget.NewButton("Подробнее", nil)
 	logsButton := widget.NewButton("Logs", nil)
@@ -129,10 +135,27 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 	)
 
 	refreshList := func() {
-		selectedIndex = -1
 		filteredContainers = filterContainers(searchEntry.Text)
-		containerList.UnselectAll()
+
+		restoredIndex := -1
+		if lastSelectedContainerName != "" {
+			for i, c := range filteredContainers {
+				if c.Names == lastSelectedContainerName {
+					restoredIndex = i
+					break
+				}
+			}
+		}
+
+		selectedIndex = restoredIndex
 		containerList.Refresh()
+
+		if restoredIndex >= 0 {
+			containerList.Select(restoredIndex)
+		} else {
+			containerList.UnselectAll()
+		}
+
 		updateActionButtons()
 
 		if len(filteredContainers) == 0 {
@@ -140,13 +163,20 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 			return
 		}
 
-		statusLabel.SetText(fmt.Sprintf("Статус: %d контейнеров", len(filteredContainers)))
+		statusLabel.SetText(
+			fmt.Sprintf(
+				"Статус: %d контейнеров | обновлено %s",
+				len(filteredContainers),
+				time.Now().Format("15:04:05"),
+			),
+		)
 	}
 
 	showErrorState := func(err error) {
 		allContainers = nil
 		filteredContainers = nil
 		selectedIndex = -1
+		lastSelectedContainerName = ""
 		containerList.UnselectAll()
 		containerList.Refresh()
 		updateActionButtons()
@@ -243,16 +273,43 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 
 	containerList.OnSelected = func(id widget.ListItemID) {
 		selectedIndex = id
+		if id >= 0 && id < len(filteredContainers) {
+			lastSelectedContainerName = filteredContainers[id].Names
+		}
 		updateActionButtons()
 	}
 
 	containerList.OnUnselected = func(id widget.ListItemID) {
 		selectedIndex = -1
+		lastSelectedContainerName = ""
 		updateActionButtons()
 	}
 
-	searchEntry.OnChanged = func(text string) {
-		refreshList()
+	autoRefreshCheck.OnChanged = func(checked bool) {
+		if !checked {
+			return
+		}
+
+		if autoRefreshStarted {
+			return
+		}
+		autoRefreshStarted = true
+
+		go func() {
+			ticker := time.NewTicker(3 * time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					if autoRefreshCheck.Checked {
+						refreshContainers()
+					}
+				case <-stopAutoRefresh:
+					return
+				}
+			}
+		}()
 	}
 
 	detailsButton.OnTapped = func() {
@@ -295,6 +352,7 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 
 	actionsRow := container.NewHBox(
 		refreshButton,
+		autoRefreshCheck,
 		detailsButton,
 		logsButton,
 		startButton,
