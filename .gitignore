@@ -1,0 +1,12 @@
+*.exe
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+build/
+.coverprofile
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
