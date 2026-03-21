@@ -32,6 +32,10 @@ func buildDashboardTab() fyne.CanvasObject {
 	systemdLabel := widget.NewLabel("systemd: ...")
 	dockerLabel := widget.NewLabel("Docker: ...")
 
+	serviceCountLabel := widget.NewLabel("Services: ...")
+	dockerCountLabel := widget.NewLabel("Containers: ...")
+	dockerRunningLabel := widget.NewLabel("Running: ...")
+
 	statusLabel := widget.NewLabel("Статус: ожидание")
 
 	updateUI := func(stats system.Stats) {
@@ -54,18 +58,37 @@ func buildDashboardTab() fyne.CanvasObject {
 		))
 		diskBar.SetValue(stats.DiskPercent / 100)
 
-		uptimeLabel.SetText("Uptime: " + system.FormatUptime(stats.UptimeSeconds))
-
-		if system.IsSystemdAvailable() {
-			systemdLabel.SetText("systemd: available")
+		if stats.UptimeKnown {
+			uptimeLabel.SetText("Uptime: " + system.FormatUptime(stats.UptimeSeconds))
 		} else {
-			systemdLabel.SetText("systemd: unavailable")
+			uptimeLabel.SetText("Uptime: unavailable")
 		}
 
-		if system.IsDockerAvailable() {
+		if stats.SystemdAvailable {
+			systemdLabel.SetText("systemd: available")
+			if stats.ServiceCountKnown {
+				serviceCountLabel.SetText(fmt.Sprintf("Services: %d", stats.ServiceCount))
+			} else {
+				serviceCountLabel.SetText("Services: unavailable")
+			}
+		} else {
+			systemdLabel.SetText("systemd: unavailable")
+			serviceCountLabel.SetText("Services: unavailable")
+		}
+
+		if stats.DockerAvailable {
 			dockerLabel.SetText("Docker: available")
+			if stats.DockerCountKnown {
+				dockerCountLabel.SetText(fmt.Sprintf("Containers: %d", stats.DockerContainerCount))
+				dockerRunningLabel.SetText(fmt.Sprintf("Running: %d", stats.DockerRunningCount))
+			} else {
+				dockerCountLabel.SetText("Containers: unavailable")
+				dockerRunningLabel.SetText("Running: unavailable")
+			}
 		} else {
 			dockerLabel.SetText("Docker: unavailable")
+			dockerCountLabel.SetText("Containers: unavailable")
+			dockerRunningLabel.SetText("Running: unavailable")
 		}
 
 		statusLabel.SetText("Обновлено: " + time.Now().Format("15:04:05"))
@@ -93,37 +116,52 @@ func buildDashboardTab() fyne.CanvasObject {
 		go refreshStats()
 	})
 
-	cpuCard := widget.NewCard("CPU", "Текущая загрузка процессора", container.NewVBox(
+	cpuCard := NewStatCard("CPU", "Текущая загрузка процессора",
+	container.NewVBox(
 		cpuValueLabel,
 		cpuBar,
-	))
+	),
+)
 
-	ramCard := widget.NewCard("RAM", "Использование оперативной памяти", container.NewVBox(
-		ramValueLabel,
-		ramBar,
-		ramDetailsLabel,
-	))
+	ramCard := NewStatCard("RAM", "Использование оперативной памяти",
+		container.NewVBox(
+			ramValueLabel,
+			ramBar,
+			ramDetailsLabel,
+		),
+	)
 
-	diskCard := widget.NewCard("Disk", "Использование диска", container.NewVBox(
-		diskValueLabel,
-		diskBar,
-		diskDetailsLabel,
-	))
+	diskCard := NewStatCard("Disk", "Использование диска",
+		container.NewVBox(
+			diskValueLabel,
+			diskBar,
+			diskDetailsLabel,
+		),
+	)
 
-	uptimeCard := widget.NewCard("Uptime", "Время непрерывной работы системы", container.NewVBox(
-		uptimeLabel,
-	))
+	uptimeCard := NewStatCard("Uptime", "Время непрерывной работы системы",
+		container.NewVBox(
+			uptimeLabel,
+		),
+	)
 
-	systemdCard := widget.NewCard("Services", "Доступность systemd", container.NewVBox(
-		systemdLabel,
-	))
+	servicesCard := NewStatCard("Services", "Статус и количество сервисов",
+		container.NewVBox(
+			systemdLabel,
+			serviceCountLabel,
+		),
+	)
 
-	dockerCard := widget.NewCard("Docker", "Доступность Docker CLI", container.NewVBox(
-		dockerLabel,
-	))
+	dockerCard := NewStatCard("Docker", "Статус и количество контейнеров",
+		container.NewVBox(
+			dockerLabel,
+			dockerCountLabel,
+			dockerRunningLabel,
+		),
+	)
 
 	topRow := container.NewGridWithColumns(3, cpuCard, ramCard, diskCard)
-	bottomRow := container.NewGridWithColumns(3, uptimeCard, systemdCard, dockerCard)
+	bottomRow := container.NewGridWithColumns(3, uptimeCard, servicesCard, dockerCard)
 
 	content := container.NewVBox(
 		title,

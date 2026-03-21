@@ -71,6 +71,23 @@ func ListDockerContainers() ([]DockerContainerInfo, error) {
 	return containers, nil
 }
 
+func CountDockerContainers() (total int, running int, err error) {
+	containers, err := ListDockerContainers()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	total = len(containers)
+
+	for _, c := range containers {
+		if strings.EqualFold(c.State, "running") {
+			running++
+		}
+	}
+
+	return total, running, nil
+}
+
 func ControlDockerContainer(action string, containerName string) error {
 	action = strings.TrimSpace(strings.ToLower(action))
 	containerName = strings.TrimSpace(containerName)

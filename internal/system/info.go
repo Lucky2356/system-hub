@@ -26,6 +26,17 @@ type Stats struct {
 	DiskPercent float64
 
 	UptimeSeconds uint64
+	UptimeKnown   bool
+
+	SystemdAvailable bool
+	DockerAvailable  bool
+
+	ServiceCount      int
+	ServiceCountKnown bool
+
+	DockerContainerCount int
+	DockerRunningCount   int
+	DockerCountKnown     bool
 }
 
 func GetStats() (Stats, error) {
@@ -56,13 +67,81 @@ func GetStats() (Stats, error) {
 	result.DiskTotal = du.Total
 	result.DiskPercent = round(du.UsedPercent, 1)
 
-	hostInfo, err := host.Info()
-	if err != nil {
-		return result, fmt.Errorf("get host info: %w", err)
+	uptime, err := getSystemUptime()
+	if err == nil {
+		result.UptimeSeconds = uptime
+		result.UptimeKnown = true
 	}
-	result.UptimeSeconds = hostInfo.Uptime
+
+	result.SystemdAvailable = IsSystemdAvailable()
+	result.DockerAvailable = IsDockerAvailable()
+
+	if result.SystemdAvailable {
+		serviceCount, err := CountServices()
+		if err == nil {
+			result.ServiceCount = serviceCount
+			result.ServiceCountKnown = true
+		}
+	}
+
+	if result.DockerAvailable {
+		total, running, err := CountDockerContainers()
+		if err == nil {
+			result.DockerContainerCount = total
+			result.DockerRunningCount = running
+			result.DockerCountKnown = true
+		}
+	}
 
 	return result, nil
+}
+
+func getSystemUptime() (uint64, error) {
+	if runtime.GOOS == "windows" {
+		return getWindowsUptime()
+	}
+
+	hostInfo, err := host.Info()
+	if err != nil {
+		return 0, err
+	}
+	return hostInfo.Uptime, nil
+}
+
+func getWindowsUptime() (uint64, error) {
+	// PowerShell-вариант надёжнее, чем wmic, потому что wmic часто отсутствует
+	cmd := exec.Command(
+		"powershell",
+		"-NoProfile",
+		"-Command",
+		`(Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime | Select-Object -ExpandProperty TotalSeconds`,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		text := strings.TrimSpace(string(output))
+		if text == "" {
+			return 0, err
+		}
+		return 0, fmt.Errorf(text)
+	}
+
+	text := strings.TrimSpace(string(output))
+	if text == "" {
+		return 0, fmt.Errorf("empty uptime output")
+	}
+
+	var seconds float64
+	_, err = fmt.Sscanf(text, "%f", &seconds)
+	if err != nil {
+		return 0, fmt.Errorf("parse uptime: %w", err)
+	}
+
+	if seconds < 0 {
+		return 0, fmt.Errorf("invalid uptime")
+	}
+
+	return uint64(seconds), nil
 }
 
 func getDiskPath() string {

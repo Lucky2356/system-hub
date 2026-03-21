@@ -40,6 +40,14 @@ func ListServices() ([]ServiceInfo, error) {
 	return parseSystemctlListUnits(string(output)), nil
 }
 
+func CountServices() (int, error) {
+	services, err := ListServices()
+	if err != nil {
+		return 0, err
+	}
+	return len(services), nil
+}
+
 func ControlService(action string, serviceName string) error {
 	if runtime.GOOS != "linux" {
 		return errors.New("service control is available only on Linux (systemd)")
@@ -71,33 +79,6 @@ func ControlService(action string, serviceName string) error {
 	return nil
 }
 
-func parseSystemctlListUnits(output string) []ServiceInfo {
-	var services []ServiceInfo
-
-	scanner := bufio.NewScanner(strings.NewReader(output))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-
-		fields := strings.Fields(line)
-		if len(fields) < 5 {
-			continue
-		}
-
-		services = append(services, ServiceInfo{
-			Name:        fields[0],
-			LoadState:   fields[1],
-			ActiveState: fields[2],
-			SubState:    fields[3],
-			Description: strings.Join(fields[4:], " "),
-		})
-	}
-
-	return services
-}
-
 func GetServiceLogs(serviceName string, lines int) (string, error) {
 	if runtime.GOOS != "linux" {
 		return "", errors.New("logs are available only on Linux (journalctl)")
@@ -124,4 +105,31 @@ func GetServiceLogs(serviceName string, lines int) (string, error) {
 	}
 
 	return string(output), nil
+}
+
+func parseSystemctlListUnits(output string) []ServiceInfo {
+	var services []ServiceInfo
+
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) < 5 {
+			continue
+		}
+
+		services = append(services, ServiceInfo{
+			Name:        fields[0],
+			LoadState:   fields[1],
+			ActiveState: fields[2],
+			SubState:    fields[3],
+			Description: strings.Join(fields[4:], " "),
+		})
+	}
+
+	return services
 }
