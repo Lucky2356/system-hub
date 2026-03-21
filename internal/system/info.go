@@ -25,7 +25,6 @@ type Stats struct {
 func GetStats() (Stats, error) {
 	var result Stats
 
-	// CPU
 	cpuPercents, err := cpu.Percent(0, false)
 	if err != nil {
 		return result, fmt.Errorf("get cpu percent: %w", err)
@@ -34,24 +33,19 @@ func GetStats() (Stats, error) {
 		result.CPUPercent = round(cpuPercents[0], 1)
 	}
 
-	// RAM
 	vm, err := mem.VirtualMemory()
 	if err != nil {
 		return result, fmt.Errorf("get virtual memory: %w", err)
 	}
-
 	result.RAMUsed = vm.Used
 	result.RAMTotal = vm.Total
 	result.RAMPercent = round(vm.UsedPercent, 1)
 
-	// DISK
 	path := getDiskPath()
-
 	du, err := disk.Usage(path)
 	if err != nil {
 		return result, fmt.Errorf("get disk usage: %w", err)
 	}
-
 	result.DiskUsed = du.Used
 	result.DiskTotal = du.Total
 	result.DiskPercent = round(du.UsedPercent, 1)
