@@ -15,7 +15,7 @@ func buildDashboardTab() fyne.CanvasObject {
 	title := widget.NewLabel("System Hub")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("MVP dashboard: CPU / RAM / Disk")
+	subtitle := widget.NewLabel("MVP dashboard: CPU / RAM / Disk / Overview")
 
 	cpuValueLabel := widget.NewLabel("CPU: ...")
 	cpuBar := widget.NewProgressBar()
@@ -27,6 +27,10 @@ func buildDashboardTab() fyne.CanvasObject {
 	diskValueLabel := widget.NewLabel("Disk: ...")
 	diskDetailsLabel := widget.NewLabel("...")
 	diskBar := widget.NewProgressBar()
+
+	uptimeLabel := widget.NewLabel("Uptime: ...")
+	systemdLabel := widget.NewLabel("systemd: ...")
+	dockerLabel := widget.NewLabel("Docker: ...")
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
 
@@ -49,6 +53,20 @@ func buildDashboardTab() fyne.CanvasObject {
 			system.FormatBytes(stats.DiskTotal),
 		))
 		diskBar.SetValue(stats.DiskPercent / 100)
+
+		uptimeLabel.SetText("Uptime: " + system.FormatUptime(stats.UptimeSeconds))
+
+		if system.IsSystemdAvailable() {
+			systemdLabel.SetText("systemd: available")
+		} else {
+			systemdLabel.SetText("systemd: unavailable")
+		}
+
+		if system.IsDockerAvailable() {
+			dockerLabel.SetText("Docker: available")
+		} else {
+			dockerLabel.SetText("Docker: unavailable")
+		}
 
 		statusLabel.SetText("Обновлено: " + time.Now().Format("15:04:05"))
 	}
@@ -92,11 +110,27 @@ func buildDashboardTab() fyne.CanvasObject {
 		diskDetailsLabel,
 	))
 
+	uptimeCard := widget.NewCard("Uptime", "Время непрерывной работы системы", container.NewVBox(
+		uptimeLabel,
+	))
+
+	systemdCard := widget.NewCard("Services", "Доступность systemd", container.NewVBox(
+		systemdLabel,
+	))
+
+	dockerCard := widget.NewCard("Docker", "Доступность Docker CLI", container.NewVBox(
+		dockerLabel,
+	))
+
+	topRow := container.NewGridWithColumns(3, cpuCard, ramCard, diskCard)
+	bottomRow := container.NewGridWithColumns(3, uptimeCard, systemdCard, dockerCard)
+
 	content := container.NewVBox(
 		title,
 		subtitle,
 		widget.NewSeparator(),
-		container.NewGridWithColumns(3, cpuCard, ramCard, diskCard),
+		topRow,
+		bottomRow,
 		widget.NewSeparator(),
 		refreshButton,
 		statusLabel,
