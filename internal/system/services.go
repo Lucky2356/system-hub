@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"sort"
 	"strings"
 )
 
@@ -38,6 +39,32 @@ func ListServices() ([]ServiceInfo, error) {
 	}
 
 	return parseSystemctlListUnits(string(output)), nil
+}
+
+func ListServiceNames() ([]string, error) {
+	services, err := ListServices()
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0, len(services))
+	seen := make(map[string]struct{})
+
+	for _, svc := range services {
+		name := strings.TrimSpace(svc.Name)
+		if name == "" {
+			continue
+		}
+		if _, exists := seen[name]; exists {
+			continue
+		}
+
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+	return names, nil
 }
 
 func CountServices() (int, error) {
@@ -84,6 +111,7 @@ func GetServiceLogs(serviceName string, lines int) (string, error) {
 		return "", errors.New("logs are available only on Linux (journalctl)")
 	}
 
+	serviceName = strings.TrimSpace(serviceName)
 	if serviceName == "" {
 		return "", errors.New("service name is empty")
 	}
@@ -101,7 +129,11 @@ func GetServiceLogs(serviceName string, lines int) (string, error) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("journalctl: %s", strings.TrimSpace(string(output)))
+		text := strings.TrimSpace(string(output))
+		if text == "" {
+			return "", fmt.Errorf("journalctl %s: %w", serviceName, err)
+		}
+		return "", fmt.Errorf("journalctl %s: %s", serviceName, text)
 	}
 
 	return string(output), nil

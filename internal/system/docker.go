@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"sort"
 	"strings"
 )
 
@@ -69,6 +70,32 @@ func ListDockerContainers() ([]DockerContainerInfo, error) {
 	}
 
 	return containers, nil
+}
+
+func ListDockerContainerNames() ([]string, error) {
+	containers, err := ListDockerContainers()
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0, len(containers))
+	seen := make(map[string]struct{})
+
+	for _, c := range containers {
+		name := strings.TrimSpace(c.Names)
+		if name == "" {
+			continue
+		}
+		if _, exists := seen[name]; exists {
+			continue
+		}
+
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+	return names, nil
 }
 
 func CountDockerContainers() (total int, running int, err error) {
