@@ -40,6 +40,9 @@ func buildLogsTab() fyne.CanvasObject {
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск по уже загруженным логам")
 
+	levelSelect := widget.NewSelect([]string{"All", "Error", "Warn", "Info"}, nil)
+	levelSelect.SetSelected("All")
+
 	statusLabel := widget.NewLabel("Статус: ожидание")
 	infoLabel := widget.NewLabel("")
 
@@ -76,8 +79,10 @@ func buildLogsTab() fyne.CanvasObject {
 
 	applySearchFilter := func() {
 		query := strings.ToLower(strings.TrimSpace(searchEntry.Text))
-		if query == "" {
-			logEntry.SetText(rawLogs)
+		level := strings.ToLower(strings.TrimSpace(levelSelect.Selected))
+
+		if strings.TrimSpace(rawLogs) == "" {
+			logEntry.SetText("")
 			return
 		}
 
@@ -85,7 +90,26 @@ func buildLogsTab() fyne.CanvasObject {
 		filtered := make([]string, 0, len(lines))
 
 		for _, line := range lines {
-			if strings.Contains(strings.ToLower(line), query) {
+			lineLower := strings.ToLower(line)
+
+			levelMatch := true
+			switch level {
+			case "error":
+				levelMatch = strings.Contains(lineLower, "error") ||
+					strings.Contains(lineLower, "failed") ||
+					strings.Contains(lineLower, "fatal")
+			case "warn":
+				levelMatch = strings.Contains(lineLower, "warn") ||
+					strings.Contains(lineLower, "warning")
+			case "info":
+				levelMatch = strings.Contains(lineLower, "info")
+			default:
+				levelMatch = true
+			}
+
+			queryMatch := query == "" || strings.Contains(lineLower, query)
+
+			if levelMatch && queryMatch {
 				filtered = append(filtered, line)
 			}
 		}
@@ -316,7 +340,7 @@ func buildLogsTab() fyne.CanvasObject {
 					)
 				}
 
-				infoLabel.SetText("Поиск применяется к уже загруженным логам")
+						infoLabel.SetText("Фильтры применяются к уже загруженным логам")
 			})
 		}(source, target, lines)
 	}
@@ -324,16 +348,21 @@ func buildLogsTab() fyne.CanvasObject {
 	targetSelect.OnChanged = func(value string) {
 		lastSelectedTarget = strings.TrimSpace(value)
 	}
-	
-		sourceSelect.OnChanged = func(string) {
+
+	sourceSelect.OnChanged = func(string) {
 		rawLogs = ""
 		logEntry.SetText("")
 		searchEntry.SetText("")
+		levelSelect.SetSelected("All")
 		updateTargetState()
 		loadTargets()
 	}
 
 	searchEntry.OnChanged = func(string) {
+		applySearchFilter()
+	}
+
+	levelSelect.OnChanged = func(string) {
 		applySearchFilter()
 	}
 
@@ -403,7 +432,7 @@ func buildLogsTab() fyne.CanvasObject {
 				targetSelect,
 			),
 		),
-		container.NewGridWithColumns(2,
+		container.NewGridWithColumns(3,
 			container.NewVBox(
 				widget.NewLabel("Количество строк"),
 				linesEntry,
@@ -411,6 +440,10 @@ func buildLogsTab() fyne.CanvasObject {
 			container.NewVBox(
 				widget.NewLabel("Поиск по тексту"),
 				searchEntry,
+			),
+			container.NewVBox(
+				widget.NewLabel("Уровень"),
+				levelSelect,
 			),
 		),
 		container.NewHBox(refreshButton, reloadSourcesButton, copyButton, autoRefreshCheck),
