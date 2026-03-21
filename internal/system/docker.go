@@ -8,11 +8,11 @@ import (
 )
 
 type DockerContainerInfo struct {
-	ID      string
-	Names   string
-	Image   string
-	State   string
-	Status  string
+	ID     string
+	Names  string
+	Image  string
+	State  string
+	Status string
 }
 
 func ListDockerContainers() ([]DockerContainerInfo, error) {
@@ -33,7 +33,12 @@ func ListDockerContainers() ([]DockerContainerInfo, error) {
 		return nil, fmt.Errorf("run docker ps: %s", text)
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	rawText := strings.TrimSpace(string(output))
+	if rawText == "" {
+		return []DockerContainerInfo{}, nil
+	}
+
+	lines := strings.Split(rawText, "\n")
 	var containers []DockerContainerInfo
 
 	for _, line := range lines {
@@ -64,4 +69,61 @@ func ListDockerContainers() ([]DockerContainerInfo, error) {
 	}
 
 	return containers, nil
+}
+
+func ControlDockerContainer(action string, containerName string) error {
+	action = strings.TrimSpace(strings.ToLower(action))
+	containerName = strings.TrimSpace(containerName)
+
+	if containerName == "" {
+		return fmt.Errorf("container name is empty")
+	}
+
+	switch action {
+	case "start", "stop", "restart":
+	default:
+		return fmt.Errorf("unsupported docker action: %s", action)
+	}
+
+	cmd := exec.Command("docker", action, containerName)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		text := strings.TrimSpace(string(output))
+		if text == "" {
+			return fmt.Errorf("docker %s %s: %w", action, containerName, err)
+		}
+		return fmt.Errorf("docker %s %s: %s", action, containerName, text)
+	}
+
+	return nil
+}
+
+func GetDockerContainerLogs(containerName string, lines int) (string, error) {
+	containerName = strings.TrimSpace(containerName)
+	if containerName == "" {
+		return "", fmt.Errorf("container name is empty")
+	}
+
+	if lines <= 0 {
+		lines = 100
+	}
+
+	cmd := exec.Command(
+		"docker",
+		"logs",
+		"--tail",
+		fmt.Sprintf("%d", lines),
+		containerName,
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		text := strings.TrimSpace(string(output))
+		if text == "" {
+			return "", fmt.Errorf("docker logs %s: %w", containerName, err)
+		}
+		return "", fmt.Errorf("docker logs %s: %s", containerName, text)
+	}
+
+	return string(output), nil
 }

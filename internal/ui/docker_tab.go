@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -17,7 +18,7 @@ func buildDockerTab() fyne.CanvasObject {
 	title := widget.NewLabel("Docker")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("Просмотр Docker-контейнеров")
+	subtitle := widget.NewLabel("Просмотр и управление Docker-контейнерами")
 
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск контейнера (например: nginx, postgres...)")
@@ -26,6 +27,46 @@ func buildDockerTab() fyne.CanvasObject {
 
 	var allContainers []system.DockerContainerInfo
 	var filteredContainers []system.DockerContainerInfo
+	selectedIndex := -1
+
+	detailsButton := widget.NewButton("Подробнее", nil)
+	logsButton := widget.NewButton("Logs", nil)
+	startButton := widget.NewButton("Start", nil)
+	stopButton := widget.NewButton("Stop", nil)
+	restartButton := widget.NewButton("Restart", nil)
+
+	detailsButton.Disable()
+	logsButton.Disable()
+	startButton.Disable()
+	stopButton.Disable()
+	restartButton.Disable()
+
+	updateActionButtons := func() {
+		hasSelection := selectedIndex >= 0 && selectedIndex < len(filteredContainers)
+		if hasSelection {
+			detailsButton.Enable()
+			logsButton.Enable()
+			startButton.Enable()
+			stopButton.Enable()
+			restartButton.Enable()
+			return
+		}
+
+		detailsButton.Disable()
+		logsButton.Disable()
+		startButton.Disable()
+		stopButton.Disable()
+		restartButton.Disable()
+	}
+
+	getSelectedContainer := func() (*system.DockerContainerInfo, bool) {
+		if selectedIndex < 0 || selectedIndex >= len(filteredContainers) {
+			return nil, false
+		}
+
+		c := filteredContainers[selectedIndex]
+		return &c, true
+	}
 
 	filterContainers := func(query string) []system.DockerContainerInfo {
 		query = strings.ToLower(strings.TrimSpace(query))
@@ -88,8 +129,11 @@ func buildDockerTab() fyne.CanvasObject {
 	)
 
 	refreshList := func() {
+		selectedIndex = -1
 		filteredContainers = filterContainers(searchEntry.Text)
+		containerList.UnselectAll()
 		containerList.Refresh()
+		updateActionButtons()
 
 		if len(filteredContainers) == 0 {
 			statusLabel.SetText("Статус: 0 результатов")
@@ -102,7 +146,10 @@ func buildDockerTab() fyne.CanvasObject {
 	showErrorState := func(err error) {
 		allContainers = nil
 		filteredContainers = nil
+		selectedIndex = -1
+		containerList.UnselectAll()
 		containerList.Refresh()
+		updateActionButtons()
 		statusLabel.SetText("Статус: ошибка загрузки — " + err.Error())
 	}
 
@@ -121,13 +168,167 @@ func buildDockerTab() fyne.CanvasObject {
 		})
 	}
 
+	showContainerDetails := func(c system.DockerContainerInfo) {
+		content := container.NewVBox(
+			widget.NewLabel("Name: "+c.Names),
+			widget.NewLabel("Image: "+c.Image),
+			widget.NewLabel("State: "+c.State),
+			widget.NewLabel("Status: "+c.Status),
+			widget.NewLabel("ID: "+c.ID),
+		)
+
+		dialog.ShowCustom(
+			"Container Details",
+			"Закрыть",
+			container.NewPadded(content),
+			fyne.CurrentApp().Driver().AllWindows()[0],
+		)
+	}
+
+	runContainerAction := func(action string) {
+		c, ok := getSelectedContainer()
+		if !ok {
+			statusLabel.SetText("Выбери контейнер из списка")
+			updateActionButtons()
+			return
+		}
+
+		message := fmt.Sprintf("Выполнить %s для контейнера %s?", strings.ToUpper(action), c.Names)
+
+		parent := fyne.CurrentApp().Driver().AllWindows()[0]
+
+		dialog.ShowConfirm("Подтверждение", message, func(confirmed bool) {
+			if !confirmed {
+				return
+			}
+
+			statusLabel.SetText(fmt.Sprintf("Статус: выполняется %s для %s...", action, c.Names))
+			detailsButton.Disable()
+			logsButton.Disable()
+			startButton.Disable()
+			stopButton.Disable()
+			restartButton.Disable()
+
+			go func(containerName string) {
+				err := system.ControlDockerContainer(action, containerName)
+				if err != nil {
+					fyne.Do(func() {
+						dialog.ShowError(err, parent)
+						statusLabel.SetText("Статус: ошибка выполнения")
+						updateActionButtons()
+					})
+					return
+				}
+
+				fyne.Do(func() {
+					dialog.ShowInformation(
+						"Готово",
+						fmt.Sprintf("Команда %s для %s выполнена.", strings.ToUpper(action), containerName),
+						parent,
+					)
+				})
+
+				refreshContainers()
+			}(c.Names)
+		}, parent)
+	}
+
+	showContainerLogs := func(containerName string) {
+		parent := fyne.CurrentApp().Driver().AllWindows()[0]
+
+		statusLabel.SetText("Загрузка логов контейнера...")
+
+		go func() {
+			logs, err := system.GetDockerContainerLogs(containerName, 100)
+			if err != nil {
+				fyne.Do(func() {
+					dialog.ShowError(err, parent)
+					statusLabel.SetText("Ошибка загрузки логов")
+				})
+				return
+			}
+
+			fyne.Do(func() {
+				logEntry := widget.NewMultiLineEntry()
+				logEntry.SetText(logs)
+				logEntry.Wrapping = fyne.TextWrapOff
+
+				w := fyne.CurrentApp().NewWindow("Docker Logs: " + containerName)
+				w.SetContent(container.NewPadded(
+					container.NewVBox(
+						widget.NewLabel("Logs for " + containerName),
+						widget.NewSeparator(),
+						container.NewVScroll(logEntry),
+					),
+				))
+				w.Resize(fyne.NewSize(800, 500))
+				w.Show()
+
+				statusLabel.SetText("Логи загружены")
+			})
+		}()
+	}
+
+	containerList.OnSelected = func(id widget.ListItemID) {
+		selectedIndex = id
+		updateActionButtons()
+	}
+
+	containerList.OnUnselected = func(id widget.ListItemID) {
+		selectedIndex = -1
+		updateActionButtons()
+	}
+
 	searchEntry.OnChanged = func(text string) {
 		refreshList()
+	}
+
+	detailsButton.OnTapped = func() {
+		c, ok := getSelectedContainer()
+		if !ok {
+			statusLabel.SetText("Выбери контейнер из списка")
+			updateActionButtons()
+			return
+		}
+
+		showContainerDetails(*c)
+	}
+
+	logsButton.OnTapped = func() {
+		c, ok := getSelectedContainer()
+		if !ok {
+			statusLabel.SetText("Выбери контейнер из списка")
+			updateActionButtons()
+			return
+		}
+
+		showContainerLogs(c.Names)
+	}
+
+	startButton.OnTapped = func() {
+		runContainerAction("start")
+	}
+
+	stopButton.OnTapped = func() {
+		runContainerAction("stop")
+	}
+
+	restartButton.OnTapped = func() {
+		runContainerAction("restart")
 	}
 
 	refreshButton := widget.NewButton("Обновить", func() {
 		go refreshContainers()
 	})
+
+	actionsRow := container.NewHBox(
+		refreshButton,
+		detailsButton,
+		logsButton,
+		startButton,
+		stopButton,
+		restartButton,
+	)
 
 	content := container.NewPadded(
 		container.NewVBox(
@@ -135,7 +336,7 @@ func buildDockerTab() fyne.CanvasObject {
 			subtitle,
 			widget.NewSeparator(),
 			searchEntry,
-			refreshButton,
+			actionsRow,
 			statusLabel,
 			widget.NewSeparator(),
 			container.NewVScroll(containerList),
