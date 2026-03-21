@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"sync"
@@ -11,6 +12,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -54,6 +56,7 @@ func buildLogsTab() fyne.CanvasObject {
 	refreshButton := widget.NewButton("Обновить", nil)
 	reloadSourcesButton := widget.NewButton("Обновить список", nil)
 	copyButton := widget.NewButton("Copy logs", nil)
+	saveButton := widget.NewButton("Save to file", nil)
 
 	var rawLogs string
 	var autoRefreshStarted bool
@@ -62,6 +65,35 @@ func buildLogsTab() fyne.CanvasObject {
 
 	var loadMu sync.Mutex
 	isLoading := false
+
+	buildLogFileName := func() string {
+		timestamp := time.Now().Format("20060102_150405")
+
+		switch sourceSelect.Selected {
+		case logSourceSystem:
+			return "system_logs_" + timestamp + ".log"
+		case logSourceServices:
+			target := strings.TrimSpace(targetSelect.Selected)
+			if target == "" {
+				target = "service"
+			}
+			target = strings.ReplaceAll(target, "/", "_")
+			target = strings.ReplaceAll(target, "\\", "_")
+			target = strings.ReplaceAll(target, " ", "_")
+			return target + "_" + timestamp + ".log"
+		case logSourceDocker:
+			target := strings.TrimSpace(targetSelect.Selected)
+			if target == "" {
+				target = "container"
+			}
+			target = strings.ReplaceAll(target, "/", "_")
+			target = strings.ReplaceAll(target, "\\", "_")
+			target = strings.ReplaceAll(target, " ", "_")
+			return target + "_" + timestamp + ".log"
+		default:
+			return "logs_" + timestamp + ".log"
+		}
+	}
 
 	parseLines := func() int {
 		text := strings.TrimSpace(linesEntry.Text)
@@ -391,6 +423,47 @@ func buildLogsTab() fyne.CanvasObject {
 		statusLabel.SetText("Статус: не удалось получить окно для clipboard")
 	}
 
+	saveButton.OnTapped = func() {
+		text := logEntry.Text
+		if strings.TrimSpace(text) == "" {
+			statusLabel.SetText("Статус: нечего сохранять")
+			return
+		}
+
+		windows := fyne.CurrentApp().Driver().AllWindows()
+		if len(windows) == 0 {
+			statusLabel.SetText("Статус: не удалось получить окно")
+			return
+		}
+
+		fileName := buildLogFileName()
+
+		saveDialog := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
+			if err != nil {
+				statusLabel.SetText("Статус: ошибка сохранения")
+				infoLabel.SetText(err.Error())
+				return
+			}
+			if writer == nil {
+				statusLabel.SetText("Статус: сохранение отменено")
+				return
+			}
+			defer writer.Close()
+
+			if _, err := io.WriteString(writer, text); err != nil {
+				statusLabel.SetText("Статус: ошибка записи файла")
+				infoLabel.SetText(err.Error())
+				return
+			}
+
+			statusLabel.SetText("Статус: логи сохранены")
+			infoLabel.SetText("Сохранено: " + time.Now().Format("15:04:05"))
+		}, windows[0])
+
+		saveDialog.SetFileName(fileName)
+		saveDialog.Show()
+	}
+
 	autoRefreshCheck.OnChanged = func(checked bool) {
 		if !checked {
 			return
@@ -446,7 +519,7 @@ func buildLogsTab() fyne.CanvasObject {
 				levelSelect,
 			),
 		),
-		container.NewHBox(refreshButton, reloadSourcesButton, copyButton, autoRefreshCheck),
+		container.NewHBox(refreshButton, reloadSourcesButton, copyButton, saveButton, autoRefreshCheck),
 		statusLabel,
 		infoLabel,
 		widget.NewSeparator(),
