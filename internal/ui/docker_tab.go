@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"image/color"
+	"sort"
 	"strings"
 	"time"
 
@@ -23,6 +24,9 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск контейнера (например: nginx, postgres...)")
+
+	sortSelect := widget.NewSelect([]string{"Name", "Status"}, nil)
+	sortSelect.SetSelected("Name")
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
 
@@ -74,15 +78,29 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 		return &c, true
 	}
 
+	sortContainers := func(items []system.DockerContainerInfo) {
+		switch sortSelect.Selected {
+		case "Status":
+			sort.SliceStable(items, func(i, j int) bool {
+				if items[i].State == items[j].State {
+					return items[i].Names < items[j].Names
+				}
+				return items[i].State < items[j].State
+			})
+		default:
+			sort.SliceStable(items, func(i, j int) bool {
+				return items[i].Names < items[j].Names
+			})
+		}
+	}
+
 	filterContainers := func(query string) []system.DockerContainerInfo {
 		query = strings.ToLower(strings.TrimSpace(query))
-		if query == "" {
-			return allContainers
-		}
 
 		var result []system.DockerContainerInfo
 		for _, c := range allContainers {
-			if strings.Contains(strings.ToLower(c.Names), query) ||
+			if query == "" ||
+				strings.Contains(strings.ToLower(c.Names), query) ||
 				strings.Contains(strings.ToLower(c.Image), query) ||
 				strings.Contains(strings.ToLower(c.State), query) ||
 				strings.Contains(strings.ToLower(c.Status), query) {
@@ -90,6 +108,7 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 			}
 		}
 
+		sortContainers(result)
 		return result
 	}
 
@@ -285,6 +304,14 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 		updateActionButtons()
 	}
 
+	searchEntry.OnChanged = func(string) {
+		refreshList()
+	}
+
+	sortSelect.OnChanged = func(string) {
+		refreshList()
+	}
+
 	autoRefreshCheck.OnChanged = func(checked bool) {
 		if !checked {
 			return
@@ -366,6 +393,7 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 			subtitle,
 			widget.NewSeparator(),
 			searchEntry,
+			sortSelect,
 			actionsRow,
 			statusLabel,
 			widget.NewSeparator(),

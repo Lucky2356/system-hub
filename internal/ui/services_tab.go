@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"image/color"
+	"sort"
 	"strings"
 	"time"
 
@@ -23,6 +24,9 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск (например: ssh, docker...)")
+
+	sortSelect := widget.NewSelect([]string{"Name", "Status"}, nil)
+	sortSelect.SetSelected("Name")
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
 
@@ -74,20 +78,35 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 		return &svc, true
 	}
 
+	sortServices := func(items []system.ServiceInfo) {
+		switch sortSelect.Selected {
+		case "Status":
+			sort.SliceStable(items, func(i, j int) bool {
+				if items[i].ActiveState == items[j].ActiveState {
+					return items[i].Name < items[j].Name
+				}
+				return items[i].ActiveState < items[j].ActiveState
+			})
+		default:
+			sort.SliceStable(items, func(i, j int) bool {
+				return items[i].Name < items[j].Name
+			})
+		}
+	}
+
 	filterServices := func(query string) []system.ServiceInfo {
 		query = strings.ToLower(strings.TrimSpace(query))
-		if query == "" {
-			return allServices
-		}
 
 		var result []system.ServiceInfo
 		for _, svc := range allServices {
-			if strings.Contains(strings.ToLower(svc.Name), query) ||
+			if query == "" ||
+				strings.Contains(strings.ToLower(svc.Name), query) ||
 				strings.Contains(strings.ToLower(svc.Description), query) {
 				result = append(result, svc)
 			}
 		}
 
+		sortServices(result)
 		return result
 	}
 
@@ -278,6 +297,14 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 		updateActionButtons()
 	}
 
+	searchEntry.OnChanged = func(string) {
+		refreshList()
+	}
+
+	sortSelect.OnChanged = func(string) {
+		refreshList()
+	}
+
 	autoRefreshCheck.OnChanged = func(checked bool) {
 		if !checked {
 			return
@@ -369,6 +396,7 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 			subtitle,
 			widget.NewSeparator(),
 			searchEntry,
+			sortSelect,
 			actionsRow,
 			statusLabel,
 			widget.NewSeparator(),
