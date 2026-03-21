@@ -37,8 +37,38 @@ func ListServices() ([]ServiceInfo, error) {
 		return nil, fmt.Errorf("run systemctl list-units: %w", err)
 	}
 
-	services := parseSystemctlListUnits(string(output))
-	return services, nil
+	return parseSystemctlListUnits(string(output)), nil
+}
+
+func ControlService(action string, serviceName string) error {
+	if runtime.GOOS != "linux" {
+		return errors.New("service control is available only on Linux (systemd)")
+	}
+
+	action = strings.TrimSpace(strings.ToLower(action))
+	serviceName = strings.TrimSpace(serviceName)
+
+	if serviceName == "" {
+		return errors.New("service name is empty")
+	}
+
+	switch action {
+	case "start", "stop", "restart":
+	default:
+		return fmt.Errorf("unsupported action: %s", action)
+	}
+
+	cmd := exec.Command("systemctl", action, serviceName)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		text := strings.TrimSpace(string(output))
+		if text == "" {
+			return fmt.Errorf("systemctl %s %s: %w", action, serviceName, err)
+		}
+		return fmt.Errorf("systemctl %s %s: %s", action, serviceName, text)
+	}
+
+	return nil
 }
 
 func parseSystemctlListUnits(output string) []ServiceInfo {
@@ -56,18 +86,12 @@ func parseSystemctlListUnits(output string) []ServiceInfo {
 			continue
 		}
 
-		name := fields[0]
-		loadState := fields[1]
-		activeState := fields[2]
-		subState := fields[3]
-		description := strings.Join(fields[4:], " ")
-
 		services = append(services, ServiceInfo{
-			Name:        name,
-			LoadState:   loadState,
-			ActiveState: activeState,
-			SubState:    subState,
-			Description: description,
+			Name:        fields[0],
+			LoadState:   fields[1],
+			ActiveState: fields[2],
+			SubState:    fields[3],
+			Description: strings.Join(fields[4:], " "),
 		})
 	}
 

@@ -11,7 +11,7 @@ func NewMainWindow(a fyne.App) fyne.Window {
 
 	tabs := container.NewAppTabs(
 		container.NewTabItem("Dashboard", buildDashboardTab()),
-		container.NewTabItem("Services", buildServicesTab()),
+		container.NewTabItem("Services", buildServicesTab(w)),
 		container.NewTabItem("Docker", buildDockerTab()),
 		container.NewTabItem("Logs", buildLogsTab()),
 	)

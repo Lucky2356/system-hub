@@ -8,14 +8,15 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
-func buildServicesTab() fyne.CanvasObject {
+func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 	title := widget.NewLabel("Services")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("Просмотр systemd-сервисов")
+	subtitle := widget.NewLabel("Просмотр и управление systemd-сервисами")
 
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск (например: ssh, docker...)")
@@ -24,7 +25,42 @@ func buildServicesTab() fyne.CanvasObject {
 
 	var allServices []system.ServiceInfo
 	var filteredServices []system.ServiceInfo
-	var selectedIndex int = -1
+	selectedIndex := -1
+
+	detailsButton := widget.NewButton("Подробнее", nil)
+	startButton := widget.NewButton("Start", nil)
+	stopButton := widget.NewButton("Stop", nil)
+	restartButton := widget.NewButton("Restart", nil)
+
+	detailsButton.Disable()
+	startButton.Disable()
+	stopButton.Disable()
+	restartButton.Disable()
+
+	updateActionButtons := func() {
+		hasSelection := selectedIndex >= 0 && selectedIndex < len(filteredServices)
+		if hasSelection {
+			detailsButton.Enable()
+			startButton.Enable()
+			stopButton.Enable()
+			restartButton.Enable()
+			return
+		}
+
+		detailsButton.Disable()
+		startButton.Disable()
+		stopButton.Disable()
+		restartButton.Disable()
+	}
+
+	getSelectedService := func() (*system.ServiceInfo, bool) {
+		if selectedIndex < 0 || selectedIndex >= len(filteredServices) {
+			return nil, false
+		}
+
+		svc := filteredServices[selectedIndex]
+		return &svc, true
+	}
 
 	serviceList := widget.NewList(
 		func() int {
@@ -53,10 +89,6 @@ func buildServicesTab() fyne.CanvasObject {
 		},
 	)
 
-	serviceList.OnSelected = func(id widget.ListItemID) {
-		selectedIndex = id
-	}
-
 	filterServices := func(query string) []system.ServiceInfo {
 		query = strings.ToLower(strings.TrimSpace(query))
 		if query == "" {
@@ -70,12 +102,16 @@ func buildServicesTab() fyne.CanvasObject {
 				result = append(result, svc)
 			}
 		}
+
 		return result
 	}
 
 	refreshList := func() {
+		selectedIndex = -1
 		filteredServices = filterServices(searchEntry.Text)
+		serviceList.UnselectAll()
 		serviceList.Refresh()
+		updateActionButtons()
 
 		if len(filteredServices) == 0 {
 			statusLabel.SetText("Статус: 0 результатов")
@@ -85,18 +121,21 @@ func buildServicesTab() fyne.CanvasObject {
 		statusLabel.SetText(fmt.Sprintf("Статус: %d сервисов", len(filteredServices)))
 	}
 
-	showError := func(err error) {
+	showErrorState := func(err error) {
 		allServices = nil
 		filteredServices = nil
+		selectedIndex = -1
+		serviceList.UnselectAll()
 		serviceList.Refresh()
-		statusLabel.SetText("Статус: ошибка загрузки")
+		updateActionButtons()
+		statusLabel.SetText("Статус: ошибка загрузки — " + err.Error())
 	}
 
 	refreshServices := func() {
 		services, err := system.ListServices()
 		if err != nil {
 			fyne.Do(func() {
-				showError(err)
+				showErrorState(err)
 			})
 			return
 		}
@@ -107,60 +146,132 @@ func buildServicesTab() fyne.CanvasObject {
 		})
 	}
 
-	// 🔍 поиск
-	searchEntry.OnChanged = func(text string) {
-		refreshList()
-	}
-
-	// 📄 окно деталей
-	openDetailsWindow := func(svc system.ServiceInfo) {
-		w := fyne.CurrentApp().NewWindow("Service Details")
+	showServiceDetails := func(svc system.ServiceInfo) {
+		description := widget.NewLabel(svc.Description)
+		description.Wrapping = fyne.TextWrapWord
 
 		content := container.NewVBox(
-			widget.NewLabelWithStyle("Service Details", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-			widget.NewSeparator(),
-
 			widget.NewLabel("Name: " + svc.Name),
 			widget.NewLabel("Load: " + svc.LoadState),
 			widget.NewLabel("Active: " + svc.ActiveState),
 			widget.NewLabel("Sub: " + svc.SubState),
-
 			widget.NewSeparator(),
 			widget.NewLabel("Description:"),
-			widget.NewLabel(svc.Description),
+			description,
 		)
 
-		w.SetContent(container.NewPadded(content))
-		w.Resize(fyne.NewSize(400, 300))
-		w.Show()
+		dialog.ShowCustom(
+			"Service Details",
+			"Закрыть",
+			container.NewPadded(content),
+			parent,
+		)
 	}
 
-	// 🔘 кнопка "Подробнее"
-	detailsButton := widget.NewButton("Подробнее", func() {
-		if selectedIndex < 0 || selectedIndex >= len(filteredServices) {
+	runServiceAction := func(action string) {
+		svc, ok := getSelectedService()
+		if !ok {
 			statusLabel.SetText("Выбери сервис из списка")
+			updateActionButtons()
 			return
 		}
 
-		openDetailsWindow(filteredServices[selectedIndex])
-	})
+		message := fmt.Sprintf("Выполнить %s для %s?", strings.ToUpper(action), svc.Name)
+
+		dialog.ShowConfirm("Подтверждение", message, func(confirmed bool) {
+			if !confirmed {
+				return
+			}
+
+			statusLabel.SetText(fmt.Sprintf("Статус: выполняется %s для %s...", action, svc.Name))
+			updateActionButtons()
+			detailsButton.Disable()
+			startButton.Disable()
+			stopButton.Disable()
+			restartButton.Disable()
+
+			go func(serviceName string) {
+				err := system.ControlService(action, serviceName)
+				if err != nil {
+					fyne.Do(func() {
+						dialog.ShowError(err, parent)
+						statusLabel.SetText("Статус: ошибка выполнения")
+						updateActionButtons()
+					})
+					return
+				}
+
+				fyne.Do(func() {
+					dialog.ShowInformation(
+						"Готово",
+						fmt.Sprintf("Команда %s для %s выполнена.", strings.ToUpper(action), serviceName),
+						parent,
+					)
+				})
+
+				refreshServices()
+			}(svc.Name)
+		}, parent)
+	}
+
+	serviceList.OnSelected = func(id widget.ListItemID) {
+		selectedIndex = id
+		updateActionButtons()
+	}
+
+	serviceList.OnUnselected = func(id widget.ListItemID) {
+		selectedIndex = -1
+		updateActionButtons()
+	}
+
+	searchEntry.OnChanged = func(text string) {
+		refreshList()
+	}
+
+	detailsButton.OnTapped = func() {
+		svc, ok := getSelectedService()
+		if !ok {
+			statusLabel.SetText("Выбери сервис из списка")
+			updateActionButtons()
+			return
+		}
+
+		showServiceDetails(*svc)
+	}
+
+	startButton.OnTapped = func() {
+		runServiceAction("start")
+	}
+
+	stopButton.OnTapped = func() {
+		runServiceAction("stop")
+	}
+
+	restartButton.OnTapped = func() {
+		runServiceAction("restart")
+	}
 
 	refreshButton := widget.NewButton("Обновить", func() {
 		go refreshServices()
 	})
+
+	actionsRow := container.NewHBox(
+		refreshButton,
+		detailsButton,
+		startButton,
+		stopButton,
+		restartButton,
+	)
 
 	content := container.NewPadded(
 		container.NewVBox(
 			title,
 			subtitle,
 			widget.NewSeparator(),
-
 			searchEntry,
-			container.NewHBox(refreshButton, detailsButton),
-
+			actionsRow,
 			statusLabel,
 			widget.NewSeparator(),
-
 			container.NewVScroll(serviceList),
 		),
 	)
