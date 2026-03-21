@@ -97,3 +97,31 @@ func parseSystemctlListUnits(output string) []ServiceInfo {
 
 	return services
 }
+
+func GetServiceLogs(serviceName string, lines int) (string, error) {
+	if runtime.GOOS != "linux" {
+		return "", errors.New("logs are available only on Linux (journalctl)")
+	}
+
+	if serviceName == "" {
+		return "", errors.New("service name is empty")
+	}
+
+	if lines <= 0 {
+		lines = 50
+	}
+
+	cmd := exec.Command(
+		"journalctl",
+		"-u", serviceName,
+		"-n", fmt.Sprintf("%d", lines),
+		"--no-pager",
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("journalctl: %s", strings.TrimSpace(string(output)))
+	}
+
+	return string(output), nil
+}

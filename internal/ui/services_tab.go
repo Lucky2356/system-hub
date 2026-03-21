@@ -30,11 +30,13 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 	selectedIndex := -1
 
 	detailsButton := widget.NewButton("Подробнее", nil)
+	logsButton := widget.NewButton("Logs", nil)
 	startButton := widget.NewButton("Start", nil)
 	stopButton := widget.NewButton("Stop", nil)
 	restartButton := widget.NewButton("Restart", nil)
 
 	detailsButton.Disable()
+	logsButton.Disable()
 	startButton.Disable()
 	stopButton.Disable()
 	restartButton.Disable()
@@ -43,6 +45,7 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 		hasSelection := selectedIndex >= 0 && selectedIndex < len(filteredServices)
 		if hasSelection {
 			detailsButton.Enable()
+			logsButton.Enable()
 			startButton.Enable()
 			stopButton.Enable()
 			restartButton.Enable()
@@ -50,6 +53,7 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 		}
 
 		detailsButton.Disable()
+		logsButton.Disable()
 		startButton.Disable()
 		stopButton.Disable()
 		restartButton.Disable()
@@ -201,6 +205,7 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 
 			statusLabel.SetText(fmt.Sprintf("Статус: выполняется %s для %s...", action, svc.Name))
 			detailsButton.Disable()
+			logsButton.Disable()
 			startButton.Disable()
 			stopButton.Disable()
 			restartButton.Disable()
@@ -254,6 +259,47 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 		showServiceDetails(*svc)
 	}
 
+	logsButton.OnTapped = func() {
+		svc, ok := getSelectedService()
+		if !ok {
+			statusLabel.SetText("Выбери сервис из списка")
+			updateActionButtons()
+			return
+		}
+
+		statusLabel.SetText("Загрузка логов...")
+
+		go func(serviceName string) {
+			logs, err := system.GetServiceLogs(serviceName, 100)
+			if err != nil {
+				fyne.Do(func() {
+					dialog.ShowError(err, parent)
+					statusLabel.SetText("Ошибка загрузки логов")
+				})
+				return
+			}
+
+			fyne.Do(func() {
+				logEntry := widget.NewMultiLineEntry()
+				logEntry.SetText(logs)
+				logEntry.Wrapping = fyne.TextWrapOff
+
+				w := fyne.CurrentApp().NewWindow("Logs: " + serviceName)
+				w.SetContent(container.NewPadded(
+					container.NewVBox(
+						widget.NewLabel("Logs for " + serviceName),
+						widget.NewSeparator(),
+						container.NewVScroll(logEntry),
+					),
+				))
+				w.Resize(fyne.NewSize(800, 500))
+				w.Show()
+
+				statusLabel.SetText("Логи загружены")
+			})
+		}(svc.Name)
+	}
+
 	startButton.OnTapped = func() {
 		runServiceAction("start")
 	}
@@ -273,6 +319,7 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 	actionsRow := container.NewHBox(
 		refreshButton,
 		detailsButton,
+		logsButton,
 		startButton,
 		stopButton,
 		restartButton,
