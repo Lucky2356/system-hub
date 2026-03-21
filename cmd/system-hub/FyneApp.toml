@@ -1,0 +1,14 @@
+Website = "https://github.com/Lucky2356/system-hub"
+
+[Details]
+Name = "System Hub"
+ID = "com.lucky2356.systemhub"
+Version = "0.1.0"
+Build = 1
+Icon = "Icon.png"
+
+[LinuxAndBSD]
+GenericName = "System Administration Tool"
+Categories = ["System", "Monitor"]
+Comment = "Dashboard, services, docker and logs for Linux"
+Keywords = ["system", "docker", "services", "logs", "monitoring"]
