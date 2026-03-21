@@ -13,6 +13,7 @@ func NewMainWindow(a fyne.App) fyne.Window {
 		container.NewTabItem("Dashboard", buildDashboardTab()),
 		container.NewTabItem("Services", buildServicesTab(w)),
 		container.NewTabItem("Docker", buildDockerTab(w)),
+		container.NewTabItem("System Info", NewSystemInfoTab(w)),
 		container.NewTabItem("Logs", buildLogsTab()),
 	)
 
