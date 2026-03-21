@@ -267,37 +267,17 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 			return
 		}
 
-		statusLabel.SetText("Загрузка логов...")
+		statusLabel.SetText("Открытие окна логов...")
 
-		go func(serviceName string) {
-			logs, err := system.GetServiceLogs(serviceName, 100)
-			if err != nil {
-				fyne.Do(func() {
-					dialog.ShowError(err, parent)
-					statusLabel.SetText("Ошибка загрузки логов")
-				})
-				return
-			}
+		showLogsWindow(
+			"Service Logs: "+svc.Name,
+			"Logs for service "+svc.Name,
+			func() (string, error) {
+				return system.GetServiceLogs(svc.Name, 200)
+			},
+		)
 
-			fyne.Do(func() {
-				logEntry := widget.NewMultiLineEntry()
-				logEntry.SetText(logs)
-				logEntry.Wrapping = fyne.TextWrapOff
-
-				w := fyne.CurrentApp().NewWindow("Logs: " + serviceName)
-				w.SetContent(container.NewPadded(
-					container.NewVBox(
-						widget.NewLabel("Logs for " + serviceName),
-						widget.NewSeparator(),
-						container.NewVScroll(logEntry),
-					),
-				))
-				w.Resize(fyne.NewSize(800, 500))
-				w.Show()
-
-				statusLabel.SetText("Логи загружены")
-			})
-		}(svc.Name)
+		statusLabel.SetText("Окно логов открыто")
 	}
 
 	startButton.OnTapped = func() {

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
-	"time"
 
 	"github.com/Lucky2356/system-hub/internal/system"
 
@@ -233,86 +232,13 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 	}
 
 	showContainerLogs := func(containerName string) {
-		logWindow := fyne.CurrentApp().NewWindow("Docker Logs: " + containerName)
-		logWindow.Resize(fyne.NewSize(900, 600))
-
-		logEntry := widget.NewMultiLineEntry()
-		logEntry.Wrapping = fyne.TextWrapOff
-		logEntry.Disable()
-
-		infoLabel := widget.NewLabel("Логи ещё не загружены")
-		autoRefreshCheck := widget.NewCheck("Auto refresh (2 сек)", nil)
-
-		stopAutoRefresh := make(chan struct{})
-
-		loadLogs := func() {
-			infoLabel.SetText("Загрузка логов...")
-
-			go func() {
-				logs, err := system.GetDockerContainerLogs(containerName, 200)
-				if err != nil {
-					fyne.Do(func() {
-						infoLabel.SetText("Ошибка загрузки логов")
-						dialog.ShowError(err, logWindow)
-					})
-					return
-				}
-
-				fyne.Do(func() {
-					logEntry.SetText(logs)
-					infoLabel.SetText("Обновлено: " + time.Now().Format("15:04:05"))
-				})
-			}()
-		}
-
-		refreshButton := widget.NewButton("Обновить", func() {
-			loadLogs()
-		})
-
-		autoRefreshCheck.OnChanged = func(checked bool) {
-			if !checked {
-				return
-			}
-
-			go func() {
-				ticker := time.NewTicker(2 * time.Second)
-				defer ticker.Stop()
-
-				for {
-					select {
-					case <-ticker.C:
-						if autoRefreshCheck.Checked {
-							loadLogs()
-						}
-					case <-stopAutoRefresh:
-						return
-					}
-				}
-			}()
-		}
-
-		logWindow.SetOnClosed(func() {
-			close(stopAutoRefresh)
-		})
-
-		content := container.NewBorder(
-			container.NewVBox(
-				widget.NewLabel("Logs for " + containerName),
-				widget.NewSeparator(),
-				container.NewHBox(refreshButton, autoRefreshCheck),
-				infoLabel,
-				widget.NewSeparator(),
-			),
-			nil,
-			nil,
-			nil,
-			container.NewVScroll(logEntry),
+		showLogsWindow(
+			"Docker Logs: "+containerName,
+			"Logs for container "+containerName,
+			func() (string, error) {
+				return system.GetDockerContainerLogs(containerName, 200)
+			},
 		)
-
-		logWindow.SetContent(container.NewPadded(content))
-		logWindow.Show()
-
-		loadLogs()
 	}
 
 	containerList.OnSelected = func(id widget.ListItemID) {
