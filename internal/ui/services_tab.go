@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Lucky2356/system-hub/internal/system"
 
@@ -16,6 +17,9 @@ func buildServicesTab() fyne.CanvasObject {
 
 	subtitle := widget.NewLabel("Просмотр systemd-сервисов")
 
+	searchEntry := widget.NewEntry()
+	searchEntry.SetPlaceHolder("Поиск (например: ssh, docker...)")
+
 	statusLabel := widget.NewLabel("Статус: ожидание")
 
 	serviceListContainer := container.NewVBox(
@@ -25,13 +29,34 @@ func buildServicesTab() fyne.CanvasObject {
 	scroll := container.NewVScroll(serviceListContainer)
 	scroll.SetMinSize(fyne.NewSize(800, 380))
 
+	var allServices []system.ServiceInfo
+
+	filterServices := func(query string) []system.ServiceInfo {
+		if query == "" {
+			return allServices
+		}
+
+		query = strings.ToLower(query)
+
+		var filtered []system.ServiceInfo
+
+		for _, svc := range allServices {
+			if strings.Contains(strings.ToLower(svc.Name), query) ||
+				strings.Contains(strings.ToLower(svc.Description), query) {
+				filtered = append(filtered, svc)
+			}
+		}
+
+		return filtered
+	}
+
 	updateServicesUI := func(services []system.ServiceInfo) {
 		serviceListContainer.Objects = nil
 
 		if len(services) == 0 {
-			serviceListContainer.Add(widget.NewLabel("Сервисы не найдены."))
+			serviceListContainer.Add(widget.NewLabel("Ничего не найдено."))
 			serviceListContainer.Refresh()
-			statusLabel.SetText("Статус: сервисы не найдены")
+			statusLabel.SetText("Статус: 0 результатов")
 			return
 		}
 
@@ -55,7 +80,7 @@ func buildServicesTab() fyne.CanvasObject {
 		}
 
 		serviceListContainer.Refresh()
-		statusLabel.SetText(fmt.Sprintf("Статус: загружено %d сервисов", len(services)))
+		statusLabel.SetText(fmt.Sprintf("Статус: %d сервисов", len(services)))
 	}
 
 	showError := func(err error) {
@@ -79,9 +104,17 @@ func buildServicesTab() fyne.CanvasObject {
 			return
 		}
 
+		allServices = services
+
 		fyne.Do(func() {
-			updateServicesUI(services)
+			updateServicesUI(allServices)
 		})
+	}
+
+	// 🔥 Фильтр при вводе
+	searchEntry.OnChanged = func(text string) {
+		filtered := filterServices(text)
+		updateServicesUI(filtered)
 	}
 
 	refreshButton := widget.NewButton("Обновить", func() {
@@ -93,6 +126,7 @@ func buildServicesTab() fyne.CanvasObject {
 			title,
 			subtitle,
 			widget.NewSeparator(),
+			searchEntry,
 			refreshButton,
 			statusLabel,
 			widget.NewSeparator(),
