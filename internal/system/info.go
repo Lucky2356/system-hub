@@ -123,7 +123,7 @@ func getWindowsUptime() (uint64, error) {
 		if text == "" {
 			return 0, err
 		}
-		return 0, fmt.Errorf(text)
+		return 0, fmt.Errorf("%s",text)
 	}
 
 	text := strings.TrimSpace(string(output))

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
+	"time"
 
 	"github.com/Lucky2356/system-hub/internal/system"
 
@@ -14,7 +15,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func buildDockerTab() fyne.CanvasObject {
+func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 	title := widget.NewLabel("Docker")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
@@ -181,7 +182,7 @@ func buildDockerTab() fyne.CanvasObject {
 			"Container Details",
 			"Закрыть",
 			container.NewPadded(content),
-			fyne.CurrentApp().Driver().AllWindows()[0],
+			parent,
 		)
 	}
 
@@ -194,8 +195,6 @@ func buildDockerTab() fyne.CanvasObject {
 		}
 
 		message := fmt.Sprintf("Выполнить %s для контейнера %s?", strings.ToUpper(action), c.Names)
-
-		parent := fyne.CurrentApp().Driver().AllWindows()[0]
 
 		dialog.ShowConfirm("Подтверждение", message, func(confirmed bool) {
 			if !confirmed {
@@ -234,39 +233,86 @@ func buildDockerTab() fyne.CanvasObject {
 	}
 
 	showContainerLogs := func(containerName string) {
-		parent := fyne.CurrentApp().Driver().AllWindows()[0]
+		logWindow := fyne.CurrentApp().NewWindow("Docker Logs: " + containerName)
+		logWindow.Resize(fyne.NewSize(900, 600))
 
-		statusLabel.SetText("Загрузка логов контейнера...")
+		logEntry := widget.NewMultiLineEntry()
+		logEntry.Wrapping = fyne.TextWrapOff
+		logEntry.Disable()
 
-		go func() {
-			logs, err := system.GetDockerContainerLogs(containerName, 100)
-			if err != nil {
+		infoLabel := widget.NewLabel("Логи ещё не загружены")
+		autoRefreshCheck := widget.NewCheck("Auto refresh (2 сек)", nil)
+
+		stopAutoRefresh := make(chan struct{})
+
+		loadLogs := func() {
+			infoLabel.SetText("Загрузка логов...")
+
+			go func() {
+				logs, err := system.GetDockerContainerLogs(containerName, 200)
+				if err != nil {
+					fyne.Do(func() {
+						infoLabel.SetText("Ошибка загрузки логов")
+						dialog.ShowError(err, logWindow)
+					})
+					return
+				}
+
 				fyne.Do(func() {
-					dialog.ShowError(err, parent)
-					statusLabel.SetText("Ошибка загрузки логов")
+					logEntry.SetText(logs)
+					infoLabel.SetText("Обновлено: " + time.Now().Format("15:04:05"))
 				})
+			}()
+		}
+
+		refreshButton := widget.NewButton("Обновить", func() {
+			loadLogs()
+		})
+
+		autoRefreshCheck.OnChanged = func(checked bool) {
+			if !checked {
 				return
 			}
 
-			fyne.Do(func() {
-				logEntry := widget.NewMultiLineEntry()
-				logEntry.SetText(logs)
-				logEntry.Wrapping = fyne.TextWrapOff
+			go func() {
+				ticker := time.NewTicker(2 * time.Second)
+				defer ticker.Stop()
 
-				w := fyne.CurrentApp().NewWindow("Docker Logs: " + containerName)
-				w.SetContent(container.NewPadded(
-					container.NewVBox(
-						widget.NewLabel("Logs for " + containerName),
-						widget.NewSeparator(),
-						container.NewVScroll(logEntry),
-					),
-				))
-				w.Resize(fyne.NewSize(800, 500))
-				w.Show()
+				for {
+					select {
+					case <-ticker.C:
+						if autoRefreshCheck.Checked {
+							loadLogs()
+						}
+					case <-stopAutoRefresh:
+						return
+					}
+				}
+			}()
+		}
 
-				statusLabel.SetText("Логи загружены")
-			})
-		}()
+		logWindow.SetOnClosed(func() {
+			close(stopAutoRefresh)
+		})
+
+		content := container.NewBorder(
+			container.NewVBox(
+				widget.NewLabel("Logs for " + containerName),
+				widget.NewSeparator(),
+				container.NewHBox(refreshButton, autoRefreshCheck),
+				infoLabel,
+				widget.NewSeparator(),
+			),
+			nil,
+			nil,
+			nil,
+			container.NewVScroll(logEntry),
+		)
+
+		logWindow.SetContent(container.NewPadded(content))
+		logWindow.Show()
+
+		loadLogs()
 	}
 
 	containerList.OnSelected = func(id widget.ListItemID) {
