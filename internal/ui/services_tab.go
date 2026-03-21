@@ -2,11 +2,13 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
@@ -62,33 +64,6 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 		return &svc, true
 	}
 
-	serviceList := widget.NewList(
-		func() int {
-			return len(filteredServices)
-		},
-		func() fyne.CanvasObject {
-			nameLabel := widget.NewLabel("service")
-			stateLabel := widget.NewLabel("state")
-			stateLabel.Alignment = fyne.TextAlignTrailing
-
-			return container.NewBorder(nil, nil, nil, stateLabel, nameLabel)
-		},
-		func(id widget.ListItemID, obj fyne.CanvasObject) {
-			if id < 0 || id >= len(filteredServices) {
-				return
-			}
-
-			svc := filteredServices[id]
-
-			border := obj.(*fyne.Container)
-			nameLabel := border.Objects[0].(*widget.Label)
-			stateLabel := border.Objects[1].(*widget.Label)
-
-			nameLabel.SetText(svc.Name)
-			stateLabel.SetText(svc.ActiveState)
-		},
-	)
-
 	filterServices := func(query string) []system.ServiceInfo {
 		query = strings.ToLower(strings.TrimSpace(query))
 		if query == "" {
@@ -105,6 +80,47 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 
 		return result
 	}
+
+	serviceList := widget.NewList(
+		func() int {
+			return len(filteredServices)
+		},
+		func() fyne.CanvasObject {
+			nameLabel := widget.NewLabel("service")
+
+			stateText := canvas.NewText("state", color.White)
+			stateText.Alignment = fyne.TextAlignTrailing
+
+			return container.NewBorder(nil, nil, nil, stateText, nameLabel)
+		},
+		func(id widget.ListItemID, obj fyne.CanvasObject) {
+			if id < 0 || id >= len(filteredServices) {
+				return
+			}
+
+			svc := filteredServices[id]
+
+			border := obj.(*fyne.Container)
+			nameLabel := border.Objects[0].(*widget.Label)
+			stateText := border.Objects[1].(*canvas.Text)
+
+			nameLabel.SetText(svc.Name)
+			stateText.Text = svc.ActiveState
+
+			switch svc.ActiveState {
+			case "active":
+				stateText.Color = color.RGBA{0, 200, 0, 255}
+			case "failed":
+				stateText.Color = color.RGBA{200, 0, 0, 255}
+			case "activating":
+				stateText.Color = color.RGBA{200, 200, 0, 255}
+			default:
+				stateText.Color = color.RGBA{150, 150, 150, 255}
+			}
+
+			stateText.Refresh()
+		},
+	)
 
 	refreshList := func() {
 		selectedIndex = -1
@@ -151,10 +167,10 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 		description.Wrapping = fyne.TextWrapWord
 
 		content := container.NewVBox(
-			widget.NewLabel("Name: " + svc.Name),
-			widget.NewLabel("Load: " + svc.LoadState),
-			widget.NewLabel("Active: " + svc.ActiveState),
-			widget.NewLabel("Sub: " + svc.SubState),
+			widget.NewLabel("Name: "+svc.Name),
+			widget.NewLabel("Load: "+svc.LoadState),
+			widget.NewLabel("Active: "+svc.ActiveState),
+			widget.NewLabel("Sub: "+svc.SubState),
 			widget.NewSeparator(),
 			widget.NewLabel("Description:"),
 			description,
@@ -184,7 +200,6 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 			}
 
 			statusLabel.SetText(fmt.Sprintf("Статус: выполняется %s для %s...", action, svc.Name))
-			updateActionButtons()
 			detailsButton.Disable()
 			startButton.Disable()
 			stopButton.Disable()
