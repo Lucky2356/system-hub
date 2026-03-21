@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Lucky2356/system-hub/internal/system"
@@ -49,10 +50,15 @@ func buildLogsTab() fyne.CanvasObject {
 	autoRefreshCheck := widget.NewCheck("Auto refresh (2 сек)", nil)
 	refreshButton := widget.NewButton("Обновить", nil)
 	reloadSourcesButton := widget.NewButton("Обновить список", nil)
+	copyButton := widget.NewButton("Copy logs", nil)
 
 	var rawLogs string
 	var autoRefreshStarted bool
+	var lastSelectedTarget string
 	stopAutoRefresh := make(chan struct{})
+
+	var loadMu sync.Mutex
+	isLoading := false
 
 	parseLines := func() int {
 		text := strings.TrimSpace(linesEntry.Text)
@@ -115,7 +121,10 @@ func buildLogsTab() fyne.CanvasObject {
 		switch sourceSelect.Selected {
 		case logSourceSystem:
 			updateTargetState()
+			lastSelectedTarget = ""
 			statusLabel.SetText("Статус: system logs готовы")
+			infoLabel.SetText("")
+
 		case logSourceServices:
 			statusLabel.SetText("Статус: загрузка списка сервисов...")
 
@@ -126,6 +135,7 @@ func buildLogsTab() fyne.CanvasObject {
 						targetSelect.Options = []string{}
 						targetSelect.ClearSelected()
 						targetSelect.Refresh()
+						lastSelectedTarget = ""
 						statusLabel.SetText("Статус: ошибка загрузки сервисов")
 						infoLabel.SetText(err.Error())
 					})
@@ -134,14 +144,30 @@ func buildLogsTab() fyne.CanvasObject {
 
 				fyne.Do(func() {
 					targetSelect.Options = names
-					targetSelect.ClearSelected()
 					targetSelect.PlaceHolder = "Выбери service"
 					targetSelect.Enable()
 					targetSelect.Refresh()
+
+					restored := false
+					if lastSelectedTarget != "" {
+						for _, name := range names {
+							if name == lastSelectedTarget {
+								targetSelect.SetSelected(lastSelectedTarget)
+								restored = true
+								break
+							}
+						}
+					}
+
+					if !restored {
+						targetSelect.ClearSelected()
+					}
+
 					statusLabel.SetText(fmt.Sprintf("Статус: сервисов найдено %d", len(names)))
 					infoLabel.SetText("")
 				})
 			}()
+
 		case logSourceDocker:
 			statusLabel.SetText("Статус: загрузка списка контейнеров...")
 
@@ -152,6 +178,7 @@ func buildLogsTab() fyne.CanvasObject {
 						targetSelect.Options = []string{}
 						targetSelect.ClearSelected()
 						targetSelect.Refresh()
+						lastSelectedTarget = ""
 						statusLabel.SetText("Статус: ошибка загрузки контейнеров")
 						infoLabel.SetText(err.Error())
 					})
@@ -160,16 +187,33 @@ func buildLogsTab() fyne.CanvasObject {
 
 				fyne.Do(func() {
 					targetSelect.Options = names
-					targetSelect.ClearSelected()
 					targetSelect.PlaceHolder = "Выбери container"
 					targetSelect.Enable()
 					targetSelect.Refresh()
+
+					restored := false
+					if lastSelectedTarget != "" {
+						for _, name := range names {
+							if name == lastSelectedTarget {
+								targetSelect.SetSelected(lastSelectedTarget)
+								restored = true
+								break
+							}
+						}
+					}
+
+					if !restored {
+						targetSelect.ClearSelected()
+					}
+
 					statusLabel.SetText(fmt.Sprintf("Статус: контейнеров найдено %d", len(names)))
 					infoLabel.SetText("")
 				})
 			}()
+
 		default:
 			updateTargetState()
+			lastSelectedTarget = ""
 			statusLabel.SetText("Статус: выбери источник логов")
 		}
 	}
@@ -190,10 +234,24 @@ func buildLogsTab() fyne.CanvasObject {
 			}
 		}
 
+		loadMu.Lock()
+		if isLoading {
+			loadMu.Unlock()
+			return
+		}
+		isLoading = true
+		loadMu.Unlock()
+
 		statusLabel.SetText("Статус: загрузка логов...")
 		infoLabel.SetText("")
 
-		go func() {
+		go func(source, target string, lines int) {
+			defer func() {
+				loadMu.Lock()
+				isLoading = false
+				loadMu.Unlock()
+			}()
+
 			var (
 				logs string
 				err  error
@@ -223,13 +281,54 @@ func buildLogsTab() fyne.CanvasObject {
 			fyne.Do(func() {
 				rawLogs = logs
 				applySearchFilter()
-				statusLabel.SetText("Статус: логи загружены")
-				infoLabel.SetText("Обновлено: " + time.Now().Format("15:04:05"))
+
+				lineCount := 0
+				if strings.TrimSpace(logs) != "" {
+					lineCount = len(strings.Split(strings.TrimRight(logs, "\n"), "\n"))
+				}
+
+				switch source {
+				case logSourceSystem:
+					statusLabel.SetText(
+						fmt.Sprintf(
+							"Статус: system logs | %d строк | обновлено %s",
+							lineCount,
+							time.Now().Format("15:04:05"),
+						),
+					)
+				case logSourceServices:
+					statusLabel.SetText(
+						fmt.Sprintf(
+							"Статус: service %s | %d строк | обновлено %s",
+							target,
+							lineCount,
+							time.Now().Format("15:04:05"),
+						),
+					)
+				case logSourceDocker:
+					statusLabel.SetText(
+						fmt.Sprintf(
+							"Статус: container %s | %d строк | обновлено %s",
+							target,
+							lineCount,
+							time.Now().Format("15:04:05"),
+						),
+					)
+				}
+
+				infoLabel.SetText("Поиск применяется к уже загруженным логам")
 			})
-		}()
+		}(source, target, lines)
 	}
 
-	sourceSelect.OnChanged = func(string) {
+	targetSelect.OnChanged = func(value string) {
+		lastSelectedTarget = strings.TrimSpace(value)
+	}
+	
+		sourceSelect.OnChanged = func(string) {
+		rawLogs = ""
+		logEntry.SetText("")
+		searchEntry.SetText("")
 		updateTargetState()
 		loadTargets()
 	}
@@ -244,6 +343,23 @@ func buildLogsTab() fyne.CanvasObject {
 
 	reloadSourcesButton.OnTapped = func() {
 		loadTargets()
+	}
+
+	copyButton.OnTapped = func() {
+		text := logEntry.Text
+		if strings.TrimSpace(text) == "" {
+			statusLabel.SetText("Статус: нечего копировать")
+			return
+		}
+
+		if w := fyne.CurrentApp().Driver().AllWindows(); len(w) > 0 {
+			w[0].Clipboard().SetContent(text)
+			statusLabel.SetText("Статус: логи скопированы")
+			infoLabel.SetText("Скопировано: " + time.Now().Format("15:04:05"))
+			return
+		}
+
+		statusLabel.SetText("Статус: не удалось получить окно для clipboard")
 	}
 
 	autoRefreshCheck.OnChanged = func(checked bool) {
@@ -297,7 +413,7 @@ func buildLogsTab() fyne.CanvasObject {
 				searchEntry,
 			),
 		),
-		container.NewHBox(refreshButton, reloadSourcesButton, autoRefreshCheck),
+		container.NewHBox(refreshButton, reloadSourcesButton, copyButton, autoRefreshCheck),
 		statusLabel,
 		infoLabel,
 		widget.NewSeparator(),
@@ -313,6 +429,8 @@ func buildLogsTab() fyne.CanvasObject {
 
 	sourceSelect.SetSelected(logSourceSystem)
 	updateTargetState()
+	statusLabel.SetText("Статус: system logs готовы")
+	infoLabel.SetText("Нажми «Обновить», чтобы загрузить логи")
 
 	return container.NewPadded(content)
 }
