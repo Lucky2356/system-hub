@@ -1,14 +1,4 @@
-[Desktop Entry]
-Type=Application
-Name=System Hub
-GenericName=System Administration Tool
-Comment=System dashboard, services, docker and logs
-Exec=system-hub
-Icon=system-hub
-Terminal=false
-Categories=System;Monitor;
-
-nano packaging/system-hub.spec
+%global debug_package %{nil}
 
 Name:           system-hub
 Version:        0.1.0
@@ -46,6 +36,5 @@ install -Dpm0644 Icon.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/sys
 %{_datadir}/icons/hicolor/256x256/apps/system-hub.png
 
 %changelog
-* Sat Mar 21 2026 You <vin.dizel.1999@mail.ru> - 0.1.0-1
+* Sat Mar 22 2026 You <you@example.com> - 0.1.0-1
 - Initial Fedora RPM
-
