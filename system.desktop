@@ -1,0 +1,51 @@
+[Desktop Entry]
+Type=Application
+Name=System Hub
+GenericName=System Administration Tool
+Comment=System dashboard, services, docker and logs
+Exec=system-hub
+Icon=system-hub
+Terminal=false
+Categories=System;Monitor;
+
+nano packaging/system-hub.spec
+
+Name:           system-hub
+Version:        0.1.0
+Release:        1%{?dist}
+Summary:        System administration hub for Linux
+
+License:        MIT
+URL:            https://github.com/Lucky2356/system-hub
+Source0:        %{name}-%{version}.tar.gz
+
+BuildRequires:  golang
+BuildRequires:  gcc
+
+Requires:       systemd
+Requires:       docker
+
+%description
+System Hub is a desktop application for monitoring system state,
+managing systemd services, Docker containers and logs.
+
+%prep
+%autosetup
+
+%build
+go build -trimpath -ldflags="-s -w" -o system-hub ./cmd/system-hub
+
+%install
+install -Dpm0755 system-hub %{buildroot}%{_bindir}/system-hub
+install -Dpm0644 packaging/system-hub.desktop %{buildroot}%{_datadir}/applications/system-hub.desktop
+install -Dpm0644 Icon.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/system-hub.png
+
+%files
+%{_bindir}/system-hub
+%{_datadir}/applications/system-hub.desktop
+%{_datadir}/icons/hicolor/256x256/apps/system-hub.png
+
+%changelog
+* Sat Mar 21 2026 You <vin.dizel.1999@mail.ru> - 0.1.0-1
+- Initial Fedora RPM
+
