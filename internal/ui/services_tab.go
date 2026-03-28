@@ -10,6 +10,7 @@ import (
 	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
+	"github.com/Lucky2356/system-hub/internal/activity"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -286,6 +287,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			go func(serviceName string) {
 				err := system.ControlService(action, serviceName)
 				if err != nil {
+					activity.Add("service", action, serviceName, "failed", err.Error())
+
 					fyne.Do(func() {
 						dialog.ShowError(err, parent)
 						statusLabel.SetText("Статус: ошибка выполнения")
@@ -294,6 +297,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 					return
 				}
 
+				activity.Add("service", action, serviceName, "success", "")
+
 				fyne.Do(func() {
 					dialog.ShowInformation(
 						"Готово",
@@ -301,7 +306,6 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 						parent,
 					)
 				})
-
 				refreshServices()
 			}(svc.Name)
 		}, parent)
@@ -369,9 +373,16 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		}
 
 		if err := toggleFavoriteService(svc.Name); err != nil {
+			activity.Add("service", "favorite", svc.Name, "failed", err.Error())
 			ShowError(parent, err)
 			statusLabel.SetText("Статус: ошибка сохранения избранного")
 			return
+		}
+
+		if isFavoriteService(svc.Name) {
+			activity.Add("service", "favorite", svc.Name, "success", "added to favorites")
+		} else {
+			activity.Add("service", "favorite", svc.Name, "success", "removed from favorites")
 		}
 
 		refreshList()

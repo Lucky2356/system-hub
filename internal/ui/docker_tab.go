@@ -10,6 +10,7 @@ import (
 	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
+	"github.com/Lucky2356/system-hub/internal/activity"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -283,6 +284,8 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			go func(containerName string) {
 				err := system.ControlDockerContainer(action, containerName)
 				if err != nil {
+					activity.Add("docker", action, containerName, "failed", err.Error())
+
 					fyne.Do(func() {
 						dialog.ShowError(err, parent)
 						statusLabel.SetText("Статус: ошибка выполнения")
@@ -290,6 +293,8 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 					})
 					return
 				}
+
+				activity.Add("docker", action, containerName, "success", "")
 
 				fyne.Do(func() {
 					dialog.ShowInformation(
@@ -377,9 +382,16 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		}
 
 		if err := toggleFavoriteContainer(c.Names); err != nil {
+			activity.Add("docker", "favorite", c.Names, "failed", err.Error())
 			ShowError(parent, err)
 			statusLabel.SetText("Статус: ошибка сохранения избранного")
 			return
+		}
+
+		if isFavoriteContainer(c.Names) {
+			activity.Add("docker", "favorite", c.Names, "success", "added to favorites")
+		} else {
+			activity.Add("docker", "favorite", c.Names, "success", "removed from favorites")
 		}
 
 		refreshList()
