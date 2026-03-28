@@ -39,12 +39,15 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 	dockerCountLabel := widget.NewLabel("Containers: ...")
 	dockerRunningLabel := widget.NewLabel("Running: ...")
 
-	statusLabel := widget.NewLabel("Статус: ожидание")
-
 	favoriteServicesLabel := widget.NewLabel("No favorite services")
 	favoriteContainersLabel := widget.NewLabel("No favorite containers")
+	problemsLabel := widget.NewLabel("Checking problems...")
+
 	favoriteServicesLabel.Wrapping = fyne.TextWrapWord
 	favoriteContainersLabel.Wrapping = fyne.TextWrapWord
+	problemsLabel.Wrapping = fyne.TextWrapWord
+
+	statusLabel := widget.NewLabel("Статус: ожидание")
 
 	updateUI := func(stats system.Stats) {
 		cpuValueLabel.SetText(fmt.Sprintf("CPU: %.1f%%", stats.CPUPercent))
@@ -110,6 +113,13 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 		} else {
 			favoriteContainersLabel.SetText(joinLines(appstate.Config.FavoriteContainers))
 		}
+
+		problems := system.BuildProblems(
+			stats,
+			appstate.Config.FavoriteServices,
+			appstate.Config.FavoriteContainers,
+		)
+		problemsLabel.SetText(joinLines(problems))
 
 		statusLabel.SetText("Обновлено: " + time.Now().Format("15:04:05"))
 	}
@@ -211,17 +221,25 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 		),
 	)
 
+	problemsCard := NewStatCard(
+		"Problems",
+		"Проблемы, требующие внимания",
+		container.NewVBox(
+			problemsLabel,
+		),
+	)
+
 	topRow := container.NewGridWithColumns(3, cpuCard, ramCard, diskCard)
-	bottomRow := container.NewGridWithColumns(3, uptimeCard, servicesCard, dockerCard)
-	favoritesRow := container.NewGridWithColumns(2, favoriteServicesCard, favoriteContainersCard)
+	middleRow := container.NewGridWithColumns(3, uptimeCard, servicesCard, dockerCard)
+	bottomRow := container.NewGridWithColumns(3, favoriteServicesCard, favoriteContainersCard, problemsCard)
 
 	content := container.NewVBox(
 		title,
 		subtitle,
 		widget.NewSeparator(),
 		topRow,
+		middleRow,
 		bottomRow,
-		favoritesRow,
 		widget.NewSeparator(),
 		refreshButton,
 		statusLabel,
@@ -250,7 +268,16 @@ func joinLines(items []string) string {
 
 	lines := make([]string, 0, len(items))
 	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
 		lines = append(lines, "• "+item)
 	}
+
+	if len(lines) == 0 {
+		return ""
+	}
+
 	return strings.Join(lines, "\n")
 }

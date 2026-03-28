@@ -38,6 +38,8 @@ func DefaultConfig() Config {
 		DockerAutoRefresh:    false,
 		LogsAutoRefresh:      false,
 		LogViewerAutoRefresh: false,
+		FavoriteServices:   []string{},
+		FavoriteContainers: []string{},
 	}
 }
 
