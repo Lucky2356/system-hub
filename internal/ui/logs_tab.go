@@ -10,6 +10,7 @@ import (
 
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
+	"github.com/Lucky2356/system-hub/internal/appstate"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -38,7 +39,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	targetSelect.PlaceHolder = "Выбери источник"
 
 	linesEntry := widget.NewEntry()
-	linesEntry.SetText(strconv.Itoa(cfg.DefaultLogLines))
+	linesEntry.SetText(strconv.Itoa(appstate.Config.DefaultLogLines))
 
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск по уже загруженным логам")
@@ -548,6 +549,6 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	if cfg.LogsAutoRefresh {
 		autoRefreshCheck.OnChanged(true)
 	}
-	
+
 	return container.NewPadded(content)
 }

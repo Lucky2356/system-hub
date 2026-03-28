@@ -4,6 +4,7 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/logger"
 	"github.com/Lucky2356/system-hub/internal/ui"
@@ -17,6 +18,7 @@ func main() {
 		log.Printf("load config: %v", err)
 		cfg = config.DefaultConfig()
 	}
+	appstate.Config = cfg
 	logPath, _ := config.ConfigFilePath()
 	logPath = filepath.Join(filepath.Dir(logPath), cfg.LogFile)
 

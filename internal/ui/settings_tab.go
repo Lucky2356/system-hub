@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Lucky2356/system-hub/internal/config"
+	"github.com/Lucky2356/system-hub/internal/appstate"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -71,6 +72,7 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			statusLabel.SetText("Ошибка сохранения: " + err.Error())
 			return
 		}
+		appstate.Config = newCfg
 
 		statusLabel.SetText("Настройки сохранены")
 		dialog.ShowInformation(

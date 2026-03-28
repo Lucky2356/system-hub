@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Lucky2356/system-hub/internal/config"
+	"github.com/Lucky2356/system-hub/internal/appstate"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -70,7 +71,7 @@ func showLogsWindow(
 		autoRefreshStarted = true
 
 		go func() {
-			ticker := time.NewTicker(time.Duration(cfg.RefreshIntervalSeconds) * time.Second)
+			ticker := time.NewTicker(time.Duration(appstate.Config.RefreshIntervalSeconds) * time.Second)
 			defer ticker.Stop()
 
 			for {

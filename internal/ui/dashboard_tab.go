@@ -6,6 +6,7 @@ import (
 
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
+	"github.com/Lucky2356/system-hub/internal/appstate"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -177,7 +178,7 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 
 	go refreshStats()
 
-	if cfg.DashboardAutoRefresh {
+	if appstate.Config.DashboardAutoRefresh {
 		go func() {
 			ticker := time.NewTicker(time.Duration(cfg.RefreshIntervalSeconds) * time.Second)
 			defer ticker.Stop()
