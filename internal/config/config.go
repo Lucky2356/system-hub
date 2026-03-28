@@ -14,14 +14,18 @@ const (
 )
 
 type Config struct {
-	RefreshIntervalSeconds int  `json:"refresh_interval_seconds"`
-	DefaultLogLines        int  `json:"default_log_lines"`
-	LogFile 			string `json:"log_file"`
+	RefreshIntervalSeconds int      `json:"refresh_interval_seconds"`
+	DefaultLogLines        int      `json:"default_log_lines"`
+	LogFile                string   `json:"log_file"`
+
 	DashboardAutoRefresh bool `json:"dashboard_auto_refresh"`
 	ServicesAutoRefresh  bool `json:"services_auto_refresh"`
 	DockerAutoRefresh    bool `json:"docker_auto_refresh"`
 	LogsAutoRefresh      bool `json:"logs_auto_refresh"`
 	LogViewerAutoRefresh bool `json:"log_viewer_auto_refresh"`
+
+	FavoriteServices   []string `json:"favorite_services"`
+	FavoriteContainers []string `json:"favorite_containers"`
 }
 
 func DefaultConfig() Config {

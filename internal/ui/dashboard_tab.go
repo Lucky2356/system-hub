@@ -2,11 +2,12 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
-	"github.com/Lucky2356/system-hub/internal/appstate"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -39,6 +40,11 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 	dockerRunningLabel := widget.NewLabel("Running: ...")
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
+
+	favoriteServicesLabel := widget.NewLabel("No favorite services")
+	favoriteContainersLabel := widget.NewLabel("No favorite containers")
+	favoriteServicesLabel.Wrapping = fyne.TextWrapWord
+	favoriteContainersLabel.Wrapping = fyne.TextWrapWord
 
 	updateUI := func(stats system.Stats) {
 		cpuValueLabel.SetText(fmt.Sprintf("CPU: %.1f%%", stats.CPUPercent))
@@ -93,10 +99,25 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 			dockerRunningLabel.SetText("Running: unavailable")
 		}
 
+		if len(appstate.Config.FavoriteServices) == 0 {
+			favoriteServicesLabel.SetText("No favorite services")
+		} else {
+			favoriteServicesLabel.SetText(joinLines(appstate.Config.FavoriteServices))
+		}
+
+		if len(appstate.Config.FavoriteContainers) == 0 {
+			favoriteContainersLabel.SetText("No favorite containers")
+		} else {
+			favoriteContainersLabel.SetText(joinLines(appstate.Config.FavoriteContainers))
+		}
+
 		statusLabel.SetText("Обновлено: " + time.Now().Format("15:04:05"))
 	}
 
 	showError := func(err error) {
+		if err == nil {
+			return
+		}
 		statusLabel.SetText("Ошибка: " + err.Error())
 	}
 
@@ -118,14 +139,18 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 		go refreshStats()
 	})
 
-	cpuCard := NewStatCard("CPU", "Текущая загрузка процессора",
+	cpuCard := NewStatCard(
+		"CPU",
+		"Текущая загрузка процессора",
 		container.NewVBox(
 			cpuValueLabel,
 			cpuBar,
 		),
 	)
 
-	ramCard := NewStatCard("RAM", "Использование оперативной памяти",
+	ramCard := NewStatCard(
+		"RAM",
+		"Использование оперативной памяти",
 		container.NewVBox(
 			ramValueLabel,
 			ramBar,
@@ -133,7 +158,9 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 		),
 	)
 
-	diskCard := NewStatCard("Disk", "Использование диска",
+	diskCard := NewStatCard(
+		"Disk",
+		"Использование диска",
 		container.NewVBox(
 			diskValueLabel,
 			diskBar,
@@ -141,20 +168,26 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 		),
 	)
 
-	uptimeCard := NewStatCard("Uptime", "Время непрерывной работы системы",
+	uptimeCard := NewStatCard(
+		"Uptime",
+		"Время непрерывной работы системы",
 		container.NewVBox(
 			uptimeLabel,
 		),
 	)
 
-	servicesCard := NewStatCard("Services", "Статус и количество сервисов",
+	servicesCard := NewStatCard(
+		"Services",
+		"Статус и количество сервисов",
 		container.NewVBox(
 			systemdLabel,
 			serviceCountLabel,
 		),
 	)
 
-	dockerCard := NewStatCard("Docker", "Статус и количество контейнеров",
+	dockerCard := NewStatCard(
+		"Docker",
+		"Статус и количество контейнеров",
 		container.NewVBox(
 			dockerLabel,
 			dockerCountLabel,
@@ -162,8 +195,25 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 		),
 	)
 
+	favoriteServicesCard := NewStatCard(
+		"Favorite Services",
+		"Быстрый список важных сервисов",
+		container.NewVBox(
+			favoriteServicesLabel,
+		),
+	)
+
+	favoriteContainersCard := NewStatCard(
+		"Favorite Containers",
+		"Быстрый список важных контейнеров",
+		container.NewVBox(
+			favoriteContainersLabel,
+		),
+	)
+
 	topRow := container.NewGridWithColumns(3, cpuCard, ramCard, diskCard)
 	bottomRow := container.NewGridWithColumns(3, uptimeCard, servicesCard, dockerCard)
+	favoritesRow := container.NewGridWithColumns(2, favoriteServicesCard, favoriteContainersCard)
 
 	content := container.NewVBox(
 		title,
@@ -171,6 +221,7 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 		widget.NewSeparator(),
 		topRow,
 		bottomRow,
+		favoritesRow,
 		widget.NewSeparator(),
 		refreshButton,
 		statusLabel,
@@ -180,7 +231,7 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 
 	if appstate.Config.DashboardAutoRefresh {
 		go func() {
-			ticker := time.NewTicker(time.Duration(cfg.RefreshIntervalSeconds) * time.Second)
+			ticker := time.NewTicker(time.Duration(appstate.Config.RefreshIntervalSeconds) * time.Second)
 			defer ticker.Stop()
 
 			for range ticker.C {
@@ -190,4 +241,16 @@ func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 	}
 
 	return container.NewPadded(content)
+}
+
+func joinLines(items []string) string {
+	if len(items) == 0 {
+		return ""
+	}
+
+	lines := make([]string, 0, len(items))
+	for _, item := range items {
+		lines = append(lines, "• "+item)
+	}
+	return strings.Join(lines, "\n")
 }

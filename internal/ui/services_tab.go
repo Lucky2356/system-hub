@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
-	"github.com/Lucky2356/system-hub/internal/appstate"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -38,7 +38,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	lastSelectedServiceName := ""
 
 	autoRefreshCheck := widget.NewCheck(
-		fmt.Sprintf("Auto refresh (%d сек)", cfg.RefreshIntervalSeconds),
+		fmt.Sprintf("Auto refresh (%d сек)", appstate.Config.RefreshIntervalSeconds),
 		nil,
 	)
 	autoRefreshCheck.SetChecked(cfg.ServicesAutoRefresh)
@@ -50,12 +50,14 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	startButton := widget.NewButton("Start", nil)
 	stopButton := widget.NewButton("Stop", nil)
 	restartButton := widget.NewButton("Restart", nil)
+	favoriteButton := widget.NewButton("☆", nil)
 
 	detailsButton.Disable()
 	logsButton.Disable()
 	startButton.Disable()
 	stopButton.Disable()
 	restartButton.Disable()
+	favoriteButton.Disable()
 
 	updateActionButtons := func() {
 		hasSelection := selectedIndex >= 0 && selectedIndex < len(filteredServices)
@@ -65,6 +67,14 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			startButton.Enable()
 			stopButton.Enable()
 			restartButton.Enable()
+			favoriteButton.Enable()
+
+			svc := filteredServices[selectedIndex]
+			if isFavoriteService(svc.Name) {
+				favoriteButton.SetText("★")
+			} else {
+				favoriteButton.SetText("☆")
+			}
 			return
 		}
 
@@ -73,6 +83,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		startButton.Disable()
 		stopButton.Disable()
 		restartButton.Disable()
+		favoriteButton.Disable()
+		favoriteButton.SetText("☆")
 	}
 
 	getSelectedService := func() (*system.ServiceInfo, bool) {
@@ -139,7 +151,12 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			nameLabel := border.Objects[0].(*widget.Label)
 			stateText := border.Objects[1].(*canvas.Text)
 
-			nameLabel.SetText(svc.Name)
+			prefix := ""
+			if isFavoriteService(svc.Name) {
+				prefix = "★ "
+			}
+
+			nameLabel.SetText(prefix + svc.Name)
 			stateText.Text = svc.ActiveState
 
 			switch svc.ActiveState {
@@ -264,6 +281,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			startButton.Disable()
 			stopButton.Disable()
 			restartButton.Disable()
+			favoriteButton.Disable()
 
 			go func(serviceName string) {
 				err := system.ControlService(action, serviceName)
@@ -342,6 +360,23 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		autoRefreshCheck.OnChanged(true)
 	}
 
+	favoriteButton.OnTapped = func() {
+		svc, ok := getSelectedService()
+		if !ok {
+			statusLabel.SetText("Выбери сервис из списка")
+			updateActionButtons()
+			return
+		}
+
+		if err := toggleFavoriteService(svc.Name); err != nil {
+			ShowError(parent, err)
+			statusLabel.SetText("Статус: ошибка сохранения избранного")
+			return
+		}
+
+		refreshList()
+	}
+
 	detailsButton.OnTapped = func() {
 		svc, ok := getSelectedService()
 		if !ok {
@@ -394,6 +429,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	actionsRow := container.NewHBox(
 		refreshButton,
 		autoRefreshCheck,
+		favoriteButton,
 		detailsButton,
 		logsButton,
 		startButton,

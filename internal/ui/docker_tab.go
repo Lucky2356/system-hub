@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
-	"github.com/Lucky2356/system-hub/internal/appstate"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -50,12 +50,14 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	startButton := widget.NewButton("Start", nil)
 	stopButton := widget.NewButton("Stop", nil)
 	restartButton := widget.NewButton("Restart", nil)
+	favoriteButton := widget.NewButton("☆", nil)
 
 	detailsButton.Disable()
 	logsButton.Disable()
 	startButton.Disable()
 	stopButton.Disable()
 	restartButton.Disable()
+	favoriteButton.Disable()
 
 	updateActionButtons := func() {
 		hasSelection := selectedIndex >= 0 && selectedIndex < len(filteredContainers)
@@ -65,6 +67,14 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			startButton.Enable()
 			stopButton.Enable()
 			restartButton.Enable()
+			favoriteButton.Enable()
+
+			c := filteredContainers[selectedIndex]
+			if isFavoriteContainer(c.Names) {
+				favoriteButton.SetText("★")
+			} else {
+				favoriteButton.SetText("☆")
+			}
 			return
 		}
 
@@ -73,6 +83,8 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		startButton.Disable()
 		stopButton.Disable()
 		restartButton.Disable()
+		favoriteButton.Disable()
+		favoriteButton.SetText("☆")
 	}
 
 	getSelectedContainer := func() (*system.DockerContainerInfo, bool) {
@@ -141,7 +153,12 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			nameLabel := border.Objects[0].(*widget.Label)
 			stateText := border.Objects[1].(*canvas.Text)
 
-			nameLabel.SetText(fmt.Sprintf("%s (%s)", c.Names, c.Image))
+			prefix := ""
+			if isFavoriteContainer(c.Names) {
+				prefix = "★ "
+			}
+
+			nameLabel.SetText(fmt.Sprintf("%s%s (%s)", prefix, c.Names, c.Image))
 			stateText.Text = c.State
 
 			switch strings.ToLower(c.State) {
@@ -261,6 +278,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			startButton.Disable()
 			stopButton.Disable()
 			restartButton.Disable()
+			favoriteButton.Disable()
 
 			go func(containerName string) {
 				err := system.ControlDockerContainer(action, containerName)
@@ -330,7 +348,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		autoRefreshStarted = true
 
 		go func() {
-			ticker := time.NewTicker(time.Duration(cfg.RefreshIntervalSeconds) * time.Second)
+			ticker := time.NewTicker(time.Duration(appstate.Config.RefreshIntervalSeconds) * time.Second)
 			defer ticker.Stop()
 
 			for {
@@ -348,6 +366,23 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	if cfg.DockerAutoRefresh {
 		autoRefreshCheck.OnChanged(true)
+	}
+
+	favoriteButton.OnTapped = func() {
+		c, ok := getSelectedContainer()
+		if !ok {
+			statusLabel.SetText("Выбери контейнер из списка")
+			updateActionButtons()
+			return
+		}
+
+		if err := toggleFavoriteContainer(c.Names); err != nil {
+			ShowError(parent, err)
+			statusLabel.SetText("Статус: ошибка сохранения избранного")
+			return
+		}
+
+		refreshList()
 	}
 
 	detailsButton.OnTapped = func() {
@@ -391,6 +426,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	actionsRow := container.NewHBox(
 		refreshButton,
 		autoRefreshCheck,
+		favoriteButton,
 		detailsButton,
 		logsButton,
 		startButton,
