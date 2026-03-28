@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"fmt"
 	"time"
+
+	"github.com/Lucky2356/system-hub/internal/config"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -13,6 +16,7 @@ func showLogsWindow(
 	title string,
 	header string,
 	loadFunc func() (string, error),
+	cfg config.Config,
 ) {
 	logWindow := fyne.CurrentApp().NewWindow(title)
 	logWindow.Resize(fyne.NewSize(900, 600))
@@ -22,7 +26,11 @@ func showLogsWindow(
 	logEntry.Disable()
 
 	infoLabel := widget.NewLabel("Логи ещё не загружены")
-	autoRefreshCheck := widget.NewCheck("Auto refresh (2 сек)", nil)
+	autoRefreshCheck := widget.NewCheck(
+		fmt.Sprintf("Auto refresh (%d сек)", cfg.RefreshIntervalSeconds),
+		nil,
+	)
+	autoRefreshCheck.SetChecked(cfg.LogViewerAutoRefresh)
 
 	stopAutoRefresh := make(chan struct{})
 	autoRefreshStarted := false
@@ -62,7 +70,7 @@ func showLogsWindow(
 		autoRefreshStarted = true
 
 		go func() {
-			ticker := time.NewTicker(2 * time.Second)
+			ticker := time.NewTicker(time.Duration(cfg.RefreshIntervalSeconds) * time.Second)
 			defer ticker.Stop()
 
 			for {
@@ -78,6 +86,10 @@ func showLogsWindow(
 				}
 			}
 		}()
+	}
+
+	if cfg.LogViewerAutoRefresh {
+		autoRefreshCheck.OnChanged(true)
 	}
 
 	logWindow.SetOnClosed(func() {

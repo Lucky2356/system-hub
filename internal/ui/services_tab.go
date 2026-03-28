@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
@@ -16,7 +17,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
+func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	title := widget.NewLabel("Services")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
@@ -35,7 +36,11 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 	selectedIndex := -1
 	lastSelectedServiceName := ""
 
-	autoRefreshCheck := widget.NewCheck("Auto refresh (3 сек)", nil)
+	autoRefreshCheck := widget.NewCheck(
+		fmt.Sprintf("Auto refresh (%d сек)", cfg.RefreshIntervalSeconds),
+		nil,
+	)
+	autoRefreshCheck.SetChecked(cfg.ServicesAutoRefresh)
 	stopAutoRefresh := make(chan struct{})
 	autoRefreshStarted := false
 
@@ -316,7 +321,7 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 		autoRefreshStarted = true
 
 		go func() {
-			ticker := time.NewTicker(3 * time.Second)
+			ticker := time.NewTicker(time.Duration(cfg.RefreshIntervalSeconds) * time.Second)
 			defer ticker.Stop()
 
 			for {
@@ -330,6 +335,10 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 				}
 			}
 		}()
+	}
+
+	if cfg.ServicesAutoRefresh {
+		autoRefreshCheck.OnChanged(true)
 	}
 
 	detailsButton.OnTapped = func() {
@@ -357,8 +366,9 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 			"Service Logs: "+svc.Name,
 			"Logs for service "+svc.Name,
 			func() (string, error) {
-				return system.GetServiceLogs(svc.Name, 200)
+				return system.GetServiceLogs(svc.Name, cfg.DefaultLogLines)
 			},
+			cfg,
 		)
 
 		statusLabel.SetText("Окно логов открыто")

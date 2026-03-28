@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
@@ -16,7 +17,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
+func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	title := widget.NewLabel("Docker")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
@@ -35,7 +36,11 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 	selectedIndex := -1
 	lastSelectedContainerName := ""
 
-	autoRefreshCheck := widget.NewCheck("Auto refresh (3 сек)", nil)
+	autoRefreshCheck := widget.NewCheck(
+		fmt.Sprintf("Auto refresh (%d сек)", cfg.RefreshIntervalSeconds),
+		nil,
+	)
+	autoRefreshCheck.SetChecked(cfg.DockerAutoRefresh)
 	stopAutoRefresh := make(chan struct{})
 	autoRefreshStarted := false
 
@@ -285,8 +290,9 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 			"Docker Logs: "+containerName,
 			"Logs for container "+containerName,
 			func() (string, error) {
-				return system.GetDockerContainerLogs(containerName, 200)
+				return system.GetDockerContainerLogs(containerName, cfg.DefaultLogLines)
 			},
+			cfg,
 		)
 	}
 
@@ -323,7 +329,7 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 		autoRefreshStarted = true
 
 		go func() {
-			ticker := time.NewTicker(3 * time.Second)
+			ticker := time.NewTicker(time.Duration(cfg.RefreshIntervalSeconds) * time.Second)
 			defer ticker.Stop()
 
 			for {
@@ -337,6 +343,10 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 				}
 			}
 		}()
+	}
+
+	if cfg.DockerAutoRefresh {
+		autoRefreshCheck.OnChanged(true)
 	}
 
 	detailsButton.OnTapped = func() {

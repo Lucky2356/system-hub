@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
@@ -22,7 +23,7 @@ const (
 	logSourceDocker   = "Docker"
 )
 
-func buildLogsTab() fyne.CanvasObject {
+func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	title := widget.NewLabel("Logs")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
@@ -37,7 +38,7 @@ func buildLogsTab() fyne.CanvasObject {
 	targetSelect.PlaceHolder = "Выбери источник"
 
 	linesEntry := widget.NewEntry()
-	linesEntry.SetText("100")
+	linesEntry.SetText(strconv.Itoa(cfg.DefaultLogLines))
 
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск по уже загруженным логам")
@@ -52,7 +53,11 @@ func buildLogsTab() fyne.CanvasObject {
 	logEntry.Wrapping = fyne.TextWrapOff
 	logEntry.Disable()
 
-	autoRefreshCheck := widget.NewCheck("Auto refresh (2 сек)", nil)
+	autoRefreshCheck := widget.NewCheck(
+		fmt.Sprintf("Auto refresh (%d сек)", cfg.RefreshIntervalSeconds),
+		nil,
+	)
+	autoRefreshCheck.SetChecked(cfg.LogsAutoRefresh)
 	refreshButton := widget.NewButton("Обновить", nil)
 	reloadSourcesButton := widget.NewButton("Обновить список", nil)
 	copyButton := widget.NewButton("Copy logs", nil)
@@ -475,7 +480,7 @@ func buildLogsTab() fyne.CanvasObject {
 		autoRefreshStarted = true
 
 		go func() {
-			ticker := time.NewTicker(2 * time.Second)
+			ticker := time.NewTicker(time.Duration(cfg.RefreshIntervalSeconds) * time.Second)
 			defer ticker.Stop()
 
 			for {
@@ -539,6 +544,10 @@ func buildLogsTab() fyne.CanvasObject {
 	updateTargetState()
 	statusLabel.SetText("Статус: system logs готовы")
 	infoLabel.SetText("Нажми «Обновить», чтобы загрузить логи")
-
+	
+	if cfg.LogsAutoRefresh {
+		autoRefreshCheck.OnChanged(true)
+	}
+	
 	return container.NewPadded(content)
 }

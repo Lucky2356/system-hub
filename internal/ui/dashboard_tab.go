@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
@@ -11,7 +12,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-func buildDashboardTab() fyne.CanvasObject {
+func buildDashboardTab(cfg config.Config) fyne.CanvasObject {
 	title := widget.NewLabel("System Hub")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
@@ -117,11 +118,11 @@ func buildDashboardTab() fyne.CanvasObject {
 	})
 
 	cpuCard := NewStatCard("CPU", "Текущая загрузка процессора",
-	container.NewVBox(
-		cpuValueLabel,
-		cpuBar,
-	),
-)
+		container.NewVBox(
+			cpuValueLabel,
+			cpuBar,
+		),
+	)
 
 	ramCard := NewStatCard("RAM", "Использование оперативной памяти",
 		container.NewVBox(
@@ -176,14 +177,16 @@ func buildDashboardTab() fyne.CanvasObject {
 
 	go refreshStats()
 
-	go func() {
-		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
+	if cfg.DashboardAutoRefresh {
+		go func() {
+			ticker := time.NewTicker(time.Duration(cfg.RefreshIntervalSeconds) * time.Second)
+			defer ticker.Stop()
 
-		for range ticker.C {
-			refreshStats()
-		}
-	}()
+			for range ticker.C {
+				refreshStats()
+			}
+		}()
+	}
 
 	return container.NewPadded(content)
 }
