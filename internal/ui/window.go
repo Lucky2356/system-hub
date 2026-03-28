@@ -18,6 +18,7 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 		container.NewTabItem("System Info", NewSystemInfoTab(w)),
 		container.NewTabItem("Logs", buildLogsTab(cfg)),
 		container.NewTabItem("Activity", buildActivityTab()),
+		container.NewTabItem("Report", buildReportTab(w)),
 		container.NewTabItem("Settings", buildSettingsTab(w, cfg)),
 	)
 
