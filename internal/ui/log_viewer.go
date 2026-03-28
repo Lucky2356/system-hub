@@ -69,7 +69,9 @@ func showLogsWindow(
 				select {
 				case <-ticker.C:
 					if autoRefreshCheck.Checked {
-						loadLogs()
+						fyne.Do(func() {
+							loadLogs()
+						})
 					}
 				case <-stopAutoRefresh:
 					return

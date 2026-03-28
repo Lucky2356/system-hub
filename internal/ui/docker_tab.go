@@ -330,7 +330,7 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 				select {
 				case <-ticker.C:
 					if autoRefreshCheck.Checked {
-						refreshContainers()
+						go refreshContainers()
 					}
 				case <-stopAutoRefresh:
 					return
@@ -387,18 +387,23 @@ func buildDockerTab(parent fyne.Window) fyne.CanvasObject {
 		restartButton,
 	)
 
-	content := container.NewPadded(
-		container.NewVBox(
-			title,
-			subtitle,
-			widget.NewSeparator(),
-			searchEntry,
-			sortSelect,
-			actionsRow,
-			statusLabel,
-			widget.NewSeparator(),
-			container.NewVScroll(containerList),
+	content := container.NewBorder(
+		container.NewPadded(
+			container.NewVBox(
+				title,
+				subtitle,
+				widget.NewSeparator(),
+				searchEntry,
+				sortSelect,
+				actionsRow,
+				statusLabel,
+				widget.NewSeparator(),
+			),
 		),
+		nil,
+		nil,
+		nil,
+		container.NewPadded(containerList),
 	)
 
 	go refreshContainers()

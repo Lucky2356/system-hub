@@ -323,7 +323,7 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 				select {
 				case <-ticker.C:
 					if autoRefreshCheck.Checked {
-						refreshServices()
+						go refreshServices()
 					}
 				case <-stopAutoRefresh:
 					return
@@ -390,18 +390,23 @@ func buildServicesTab(parent fyne.Window) fyne.CanvasObject {
 		restartButton,
 	)
 
-	content := container.NewPadded(
-		container.NewVBox(
-			title,
-			subtitle,
-			widget.NewSeparator(),
-			searchEntry,
-			sortSelect,
-			actionsRow,
-			statusLabel,
-			widget.NewSeparator(),
-			container.NewVScroll(serviceList),
+	content := container.NewBorder(
+		container.NewPadded(
+			container.NewVBox(
+				title,
+				subtitle,
+				widget.NewSeparator(),
+				searchEntry,
+				sortSelect,
+				actionsRow,
+				statusLabel,
+				widget.NewSeparator(),
+			),
 		),
+		nil,
+		nil,
+		nil,
+		container.NewPadded(serviceList),
 	)
 
 	go refreshServices()

@@ -372,7 +372,7 @@ func buildLogsTab() fyne.CanvasObject {
 					)
 				}
 
-						infoLabel.SetText("Фильтры применяются к уже загруженным логам")
+				infoLabel.SetText("Фильтры применяются к уже загруженным логам")
 			})
 		}(source, target, lines)
 	}
@@ -482,7 +482,9 @@ func buildLogsTab() fyne.CanvasObject {
 				select {
 				case <-ticker.C:
 					if autoRefreshCheck.Checked {
-						loadLogs()
+						fyne.Do(func() {
+							loadLogs()
+						})
 					}
 				case <-stopAutoRefresh:
 					return
