@@ -152,3 +152,21 @@ func FormatFileSize(size int64) string {
 		return fmt.Sprintf("%d B", size)
 	}
 }
+
+func WriteTextFile(path string, content string) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return fmt.Errorf("path is empty")
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if info.IsDir() {
+		return fmt.Errorf("path is a directory")
+	}
+
+	return os.WriteFile(path, []byte(content), info.Mode().Perm())
+}

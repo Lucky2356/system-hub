@@ -28,6 +28,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 	}
 
 	pathEntry := widget.NewEntry()
+
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Фильтр по имени файла...")
 
@@ -41,6 +42,20 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 	var filteredEntries []system.FileEntry
 	selectedIndex := -1
 	currentPath := ""
+	currentFilePath := ""
+	editMode := false
+
+	updateEditMode := func(enabled bool) {
+		editMode = enabled
+
+		if enabled {
+			fileContent.Enable()
+			statusLabel.SetText("Статус: режим редактирования")
+			return
+		}
+
+		fileContent.Disable()
+	}
 
 	presetSelect := widget.NewSelect(presetTitles, func(selected string) {
 		path := presetMap[selected]
@@ -120,7 +135,9 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		currentPath = path
 		allEntries = entries
 		selectedIndex = -1
+		currentFilePath = ""
 		fileContent.SetText("")
+		updateEditMode(false)
 		refreshList()
 		statusLabel.SetText("Статус: открыта директория " + currentPath)
 	}
@@ -146,7 +163,9 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 			return
 		}
 
+		currentFilePath = item.FullPath
 		fileContent.SetText(content)
+		updateEditMode(false)
 		statusLabel.SetText("Статус: открыт файл " + item.FullPath)
 	}
 
@@ -182,6 +201,54 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		openSelected()
 	})
 
+	editButton := widget.NewButton("Edit", func() {
+		if strings.TrimSpace(currentFilePath) == "" {
+			statusLabel.SetText("Статус: сначала открой файл")
+			return
+		}
+
+		updateEditMode(true)
+	})
+
+	reloadButton := widget.NewButton("Reload", func() {
+		if strings.TrimSpace(currentFilePath) == "" {
+			statusLabel.SetText("Статус: сначала открой файл")
+			return
+		}
+
+		content, err := system.ReadTextFile(currentFilePath, 1024*1024)
+		if err != nil {
+			ShowError(parent, err)
+			statusLabel.SetText("Статус: ошибка перезагрузки файла")
+			return
+		}
+
+		fileContent.SetText(content)
+		updateEditMode(false)
+		statusLabel.SetText("Статус: файл перезагружен")
+	})
+
+	saveButton := widget.NewButton("Save", func() {
+		if strings.TrimSpace(currentFilePath) == "" {
+			statusLabel.SetText("Статус: сначала открой файл")
+			return
+		}
+
+		err := system.WriteTextFile(currentFilePath, fileContent.Text)
+		if err != nil {
+			if system.IsPermissionError(err) {
+				ShowErrorMsg(parent, "Недостаточно прав для сохранения файла")
+			} else {
+				ShowError(parent, err)
+			}
+			statusLabel.SetText("Статус: ошибка сохранения файла")
+			return
+		}
+
+		updateEditMode(false)
+		statusLabel.SetText("Статус: файл сохранён")
+	})
+
 	infoButton := widget.NewButton("Info", func() {
 		if selectedIndex < 0 || selectedIndex >= len(filteredEntries) {
 			statusLabel.SetText("Статус: выбери файл или папку")
@@ -209,10 +276,6 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		selectedIndex = -1
 	}
 
-	fileList.OnSelected = func(id widget.ListItemID) {
-		selectedIndex = id
-	}
-
 	searchEntry.OnChanged = func(string) {
 		refreshList()
 	}
@@ -223,7 +286,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 			presetSelect,
 			pathEntry,
 			searchEntry,
-			container.NewHBox(openButton, upButton, viewButton, infoButton),
+			container.NewHBox(openButton, upButton, viewButton, editButton, reloadButton, saveButton, infoButton),
 			statusLabel,
 			widget.NewSeparator(),
 		),
@@ -246,6 +309,8 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 	)
 
 	loadPath(pathEntry.Text)
+
+	_ = editMode
 
 	return container.NewPadded(contentContainer)
 }
