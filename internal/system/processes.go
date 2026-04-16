@@ -18,6 +18,14 @@ type PortProcessInfo struct {
 	Status      string
 }
 
+type ProcessUsageInfo struct {
+	PID           int32
+	ProcessName   string
+	CPUPercent    float64
+	MemoryBytes   uint64
+	MemoryPercent float32
+}
+
 func ListListeningPorts() ([]PortProcessInfo, error) {
 	conns, err := gnet.Connections("inet")
 	if err != nil {
@@ -100,4 +108,68 @@ func KillProcess(pid int32) error {
 	}
 
 	return p.Kill()
+}
+
+func ListTopProcesses(limit int) ([]ProcessUsageInfo, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	procs, err := process.Processes()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]ProcessUsageInfo, 0, len(procs))
+
+	for _, p := range procs {
+		name, err := p.Name()
+		if err != nil || strings.TrimSpace(name) == "" {
+			name = "-"
+		}
+
+		cpuPercent, err := p.CPUPercent()
+		if err != nil {
+			cpuPercent = 0
+		}
+
+		memInfo, err := p.MemoryInfo()
+		if err != nil || memInfo == nil {
+			memInfo = nil
+		}
+
+		memPercent, err := p.MemoryPercent()
+		if err != nil {
+			memPercent = 0
+		}
+
+		memBytes := uint64(0)
+		if memInfo != nil {
+			memBytes = memInfo.RSS
+		}
+
+		result = append(result, ProcessUsageInfo{
+			PID:           p.Pid,
+			ProcessName:   name,
+			CPUPercent:    cpuPercent,
+			MemoryBytes:   memBytes,
+			MemoryPercent: memPercent,
+		})
+	}
+
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].CPUPercent == result[j].CPUPercent {
+			if result[i].MemoryBytes == result[j].MemoryBytes {
+				return result[i].ProcessName < result[j].ProcessName
+			}
+			return result[i].MemoryBytes > result[j].MemoryBytes
+		}
+		return result[i].CPUPercent > result[j].CPUPercent
+	})
+
+	if len(result) > limit {
+		result = result[:limit]
+	}
+
+	return result, nil
 }

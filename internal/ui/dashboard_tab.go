@@ -45,9 +45,12 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	favoriteServicesBox := container.NewVBox(widget.NewLabel("No favorite services"))
 	favoriteContainersBox := container.NewVBox(widget.NewLabel("No favorite containers"))
 	problemsLabel := widget.NewLabel("Checking problems...")
+	topProcessesLabel := widget.NewLabel("Loading top processes...")
+	topProcessesLabel.Wrapping = fyne.TextWrapWord
 
 
 	problemsLabel.Wrapping = fyne.TextWrapWord
+	topProcessesLabel.Wrapping = fyne.TextWrapWord
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
 	
@@ -369,7 +372,12 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 			appstate.Config.FavoriteContainers,
 		)
 		problemsLabel.SetText(joinLines(problems))
-
+		topProcesses, err := system.ListTopProcesses(5)
+		if err != nil {
+			topProcessesLabel.SetText("Unable to load top processes")
+		} else {
+			topProcessesLabel.SetText(formatTopProcesses(topProcesses))
+		}
 		statusLabel.SetText("Обновлено: " + time.Now().Format("15:04:05"))
 	}
 
@@ -474,12 +482,23 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		),
 	)
 
+	topProcessesCard := NewStatCard(
+		"Top Processes",
+		"Самые тяжёлые процессы по CPU",
+		container.NewVBox(
+			topProcessesLabel,
+		),
+	)
+
 	topRow := container.NewGridWithColumns(3, cpuCard, ramCard, diskCard)
 	middleRow := container.NewGridWithColumns(3, uptimeCard, servicesCard, dockerCard)
-	bottomRow := container.NewGridWithColumns(2,
-		container.NewVBox(favoriteServicesCard, favoriteContainersCard),
+	bottomRow := container.NewGridWithColumns(3,
+		favoriteServicesCard,
+		favoriteContainersCard,
 		problemsCard,
 	)
+
+	extraRow := container.NewGridWithColumns(1, topProcessesCard)
 
 	content := container.NewVBox(
 		title,
@@ -488,6 +507,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		topRow,
 		middleRow,
 		bottomRow,
+		extraRow,
 		widget.NewSeparator(),
 		refreshButton,
 		statusLabel,
@@ -525,6 +545,28 @@ func joinLines(items []string) string {
 
 	if len(lines) == 0 {
 		return ""
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func formatTopProcesses(items []system.ProcessUsageInfo) string {
+	if len(items) == 0 {
+		return "No process data"
+	}
+
+	lines := make([]string, 0, len(items))
+
+	for _, item := range items {
+		lines = append(lines,
+			fmt.Sprintf(
+				"• %s (PID %d) | CPU %.1f%% | RAM %s",
+				item.ProcessName,
+				item.PID,
+				item.CPUPercent,
+				system.FormatBytes(item.MemoryBytes),
+			),
+		)
 	}
 
 	return strings.Join(lines, "\n")
