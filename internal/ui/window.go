@@ -12,7 +12,7 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 	w.Resize(fyne.NewSize(900, 550))
 
 	tabs := container.NewAppTabs(
-		container.NewTabItem("Dashboard", buildDashboardTab(cfg)),
+		container.NewTabItem("Dashboard", buildDashboardTab(w, cfg)),
 		container.NewTabItem("Services", buildServicesTab(w, cfg)),
 		container.NewTabItem("Docker", buildDockerTab(w, cfg)),
 		container.NewTabItem("System Info", NewSystemInfoTab(w)),
