@@ -157,6 +157,27 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 				}
 			}(name))
 
+			unitButton := widget.NewButton("Unit", func(serviceName string) func() {
+				return func() {
+					unitPath, err := system.FindServiceUnitFile(serviceName)
+					if err != nil {
+						ShowError(parent, err)
+						return
+					}
+
+					if err := OpenFileInFiles(unitPath); err != nil {
+						ShowError(parent, err)
+						return
+					}
+
+					dialog.ShowInformation(
+						"Unit file opened",
+						"Файл открыт во вкладке Files:\n"+unitPath,
+						parent,
+					)
+				}
+			}(name))
+
 			startButton := widget.NewButton("Start", func(serviceName string) func() {
 				return func() {
 					runServiceAction("start", serviceName)
@@ -183,7 +204,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 					nil,
 					nil,
 				),
-				container.NewHBox(logsButton, startButton, stopButton, restartButton),
+				container.NewHBox(logsButton, unitButton, startButton, stopButton, restartButton),
 				widget.NewSeparator(),
 			)
 
@@ -271,6 +292,37 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 				}
 			}(name))
 
+			inspectButton := widget.NewButton("Inspect", func(containerName string) func() {
+				return func() {
+					go func() {
+						result, err := system.GetDockerContainerInspect(containerName)
+
+						fyne.Do(func() {
+							if err != nil {
+								if system.IsPermissionError(err) {
+									ShowErrorMsg(parent, system.BuildPermissionHint("docker", "inspect", containerName))
+								} else {
+									ShowError(parent, err)
+								}
+								return
+							}
+
+							output := widget.NewMultiLineEntry()
+							output.SetText(result)
+							output.Wrapping = fyne.TextWrapWord
+							output.Disable()
+
+							dialog.ShowCustom(
+								"Docker Inspect: "+containerName,
+								"Закрыть",
+								container.NewPadded(output),
+								parent,
+							)
+						})
+					}()
+				}
+			}(name))
+
 			startButton := widget.NewButton("Start", func(containerName string) func() {
 				return func() {
 					runContainerAction("start", containerName)
@@ -297,7 +349,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 					nil,
 					nil,
 				),
-				container.NewHBox(logsButton, startButton, stopButton, restartButton),
+				container.NewHBox(logsButton, inspectButton, startButton, stopButton, restartButton),
 				widget.NewSeparator(),
 			)
 
