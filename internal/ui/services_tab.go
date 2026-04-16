@@ -47,6 +47,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	autoRefreshStarted := false
 
 	detailsButton := widget.NewButton("Подробнее", nil)
+	openUnitButton := widget.NewButton("Open Unit", nil)
 	logsButton := widget.NewButton("Logs", nil)
 	startButton := widget.NewButton("Start", nil)
 	stopButton := widget.NewButton("Stop", nil)
@@ -54,6 +55,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	favoriteButton := widget.NewButton("☆", nil)
 
 	detailsButton.Disable()
+	openUnitButton.Disable()
 	logsButton.Disable()
 	startButton.Disable()
 	stopButton.Disable()
@@ -64,6 +66,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		hasSelection := selectedIndex >= 0 && selectedIndex < len(filteredServices)
 		if hasSelection {
 			detailsButton.Enable()
+			openUnitButton.Enable()
 			logsButton.Enable()
 			startButton.Enable()
 			stopButton.Enable()
@@ -80,6 +83,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		}
 
 		detailsButton.Disable()
+		openUnitButton.Disable()
 		logsButton.Disable()
 		startButton.Disable()
 		stopButton.Disable()
@@ -403,6 +407,35 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		showServiceDetails(*svc)
 	}
 
+	openUnitButton.OnTapped = func() {
+		svc, ok := getSelectedService()
+		if !ok {
+			statusLabel.SetText("Выбери сервис из списка")
+			updateActionButtons()
+			return
+		}
+
+		unitPath, err := system.FindServiceUnitFile(svc.Name)
+		if err != nil {
+			ShowError(parent, err)
+			statusLabel.SetText("Статус: unit file не найден")
+			return
+		}
+
+		if err := OpenFileInFiles(unitPath); err != nil {
+			ShowError(parent, err)
+			statusLabel.SetText("Статус: не удалось открыть unit file")
+			return
+		}
+
+		dialog.ShowInformation(
+			"Unit file opened",
+			"Файл открыт во вкладке Files:\n"+unitPath,
+			parent,
+		)
+		statusLabel.SetText("Статус: unit file открыт")
+	}
+
 	logsButton.OnTapped = func() {
 		svc, ok := getSelectedService()
 		if !ok {
@@ -446,6 +479,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		autoRefreshCheck,
 		favoriteButton,
 		detailsButton,
+		openUnitButton,
 		logsButton,
 		startButton,
 		stopButton,

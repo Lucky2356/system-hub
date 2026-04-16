@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/Lucky2356/system-hub/internal/system"
@@ -307,6 +308,29 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		nil,
 		container.NewPadded(fileContent),
 	)
+
+	RegisterFilesOpener(func(path string) error {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			return fmt.Errorf("path is empty")
+		}
+
+		dir := filepath.Dir(path)
+		pathEntry.SetText(dir)
+		loadPath(dir)
+
+		content, err := system.ReadTextFile(path, 1024*1024)
+		if err != nil {
+			return err
+		}
+
+		currentFilePath = path
+		fileContent.SetText(content)
+		updateEditMode(false)
+		statusLabel.SetText("Статус: открыт файл " + path)
+
+		return nil
+	})
 
 	loadPath(pathEntry.Text)
 
