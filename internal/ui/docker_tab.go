@@ -287,7 +287,12 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 					activity.Add("docker", action, containerName, "failed", err.Error())
 
 					fyne.Do(func() {
-						dialog.ShowError(err, parent)
+						if system.IsPermissionError(err) {
+							ShowErrorMsg(parent, system.BuildPermissionHint("docker", action, containerName))
+						} else {
+							ShowError(parent, err)
+						}
+
 						statusLabel.SetText("Статус: ошибка выполнения")
 						updateActionButtons()
 					})

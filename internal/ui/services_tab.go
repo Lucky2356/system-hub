@@ -290,13 +290,17 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 					activity.Add("service", action, serviceName, "failed", err.Error())
 
 					fyne.Do(func() {
-						dialog.ShowError(err, parent)
+						if system.IsPermissionError(err) {
+							ShowErrorMsg(parent, system.BuildPermissionHint("service", action, serviceName))
+						} else {
+							ShowError(parent, err)
+						}
+
 						statusLabel.SetText("Статус: ошибка выполнения")
 						updateActionButtons()
 					})
 					return
 				}
-
 				activity.Add("service", action, serviceName, "success", "")
 
 				fyne.Do(func() {
