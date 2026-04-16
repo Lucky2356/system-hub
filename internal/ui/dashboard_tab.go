@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
@@ -48,6 +50,24 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	problemsLabel.Wrapping = fyne.TextWrapWord
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
+	
+	makeStatusText := func(status string) *canvas.Text {
+		text := canvas.NewText(status, color.NRGBA{R: 160, G: 160, B: 160, A: 255})
+		text.TextSize = 12
+
+		switch strings.ToLower(strings.TrimSpace(status)) {
+		case "active", "running":
+			text.Color = color.NRGBA{R: 60, G: 180, B: 90, A: 255}
+		case "failed", "exited":
+			text.Color = color.NRGBA{R: 220, G: 70, B: 70, A: 255}
+		case "inactive", "dead", "unavailable":
+			text.Color = color.NRGBA{R: 180, G: 140, B: 50, A: 255}
+		default:
+			text.Color = color.NRGBA{R: 160, G: 160, B: 160, A: 255}
+		}
+
+		return text
+	}
 
 	var refreshStats func()
 	var refreshButtonTapped func()
@@ -57,90 +77,118 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	}
 
 	buildFavoriteServiceRows := func() []fyne.CanvasObject {
-	if len(appstate.Config.FavoriteServices) == 0 {
-		return []fyne.CanvasObject{widget.NewLabel("No favorite services")}
-	}
-
-	services, err := system.ListServices()
-	if err != nil {
-		return []fyne.CanvasObject{widget.NewLabel("Unable to load favorite services")}
-	}
-
-	serviceMap := make(map[string]system.ServiceInfo, len(services))
-	for _, svc := range services {
-		serviceMap[svc.Name] = svc
-	}
-
-	rows := make([]fyne.CanvasObject, 0, len(appstate.Config.FavoriteServices))
-
-	for _, name := range appstate.Config.FavoriteServices {
-		svc, ok := serviceMap[name]
-
-		statusText := "unavailable"
-		if ok {
-			statusText = svc.ActiveState
+		if len(appstate.Config.FavoriteServices) == 0 {
+			return []fyne.CanvasObject{widget.NewLabel("No favorite services")}
 		}
 
-		nameLabel := widget.NewLabel(name)
-		statusLabel := widget.NewLabel(statusText)
+		services, err := system.ListServices()
+		if err != nil {
+			return []fyne.CanvasObject{widget.NewLabel("Unable to load favorite services")}
+		}
 
-		logsButton := widget.NewButton("Logs", func(serviceName string) func() {
-			return func() {
-				showLogsWindow(
-					"Service Logs: "+serviceName,
-					"Logs for service "+serviceName,
-					func() (string, error) {
-						return system.GetServiceLogs(serviceName, appstate.Config.DefaultLogLines)
-					},
-					appstate.Config,
-				)
-			}
-		}(name))
+		serviceMap := make(map[string]system.ServiceInfo, len(services))
+		for _, svc := range services {
+			serviceMap[svc.Name] = svc
+		}
 
-		restartButton := widget.NewButton("Restart", func(serviceName string) func() {
-			return func() {
-				dialog.ShowConfirm(
-					"Confirm restart",
-					"Restart service "+serviceName+"?",
-					func(ok bool) {
-						if !ok {
-							return
-						}
+		runServiceAction := func(action, serviceName string) {
+			dialog.ShowConfirm(
+				"Confirm "+action,
+				fmt.Sprintf("%s service %s?", strings.Title(action), serviceName),
+				func(ok bool) {
+					if !ok {
+						return
+					}
 
-						go func() {
-							err := system.ControlService("restart", serviceName)
-							fyne.Do(func() {
-								if err != nil {
-									if system.IsPermissionError(err) {
-										ShowErrorMsg(parent, system.BuildPermissionHint("service", "restart", serviceName))
-									} else {
-										ShowError(parent, err)
-									}
-									return
+					go func() {
+						err := system.ControlService(action, serviceName)
+
+						fyne.Do(func() {
+							if err != nil {
+								if system.IsPermissionError(err) {
+									ShowErrorMsg(parent, system.BuildPermissionHint("service", action, serviceName))
+								} else {
+									ShowError(parent, err)
 								}
+								return
+							}
 
-								refreshButtonTapped()
-							})
-						}()
-					},
-					parent,
-				)
+							refreshButtonTapped()
+						})
+					}()
+				},
+				parent,
+			)
+		}
+
+		rows := make([]fyne.CanvasObject, 0, len(appstate.Config.FavoriteServices))
+
+		for _, name := range appstate.Config.FavoriteServices {
+			svc, ok := serviceMap[name]
+
+			statusText := "unavailable"
+			if ok {
+				statusText = svc.ActiveState
 			}
-		}(name))
 
-		row := container.NewBorder(
-			nil,
-			nil,
-			container.NewVBox(nameLabel, statusLabel),
-			container.NewHBox(logsButton, restartButton),
-			nil,
-		)
+			nameLabel := widget.NewLabel(name)
+			nameLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-		rows = append(rows, row)
+			statusTextObj := makeStatusText(statusText)
+
+			infoBox := container.NewVBox(
+				nameLabel,
+				statusTextObj,
+			)
+
+			logsButton := widget.NewButton("Logs", func(serviceName string) func() {
+				return func() {
+					showLogsWindow(
+						"Service Logs: "+serviceName,
+						"Logs for service "+serviceName,
+						func() (string, error) {
+							return system.GetServiceLogs(serviceName, appstate.Config.DefaultLogLines)
+						},
+						appstate.Config,
+					)
+				}
+			}(name))
+
+			startButton := widget.NewButton("Start", func(serviceName string) func() {
+				return func() {
+					runServiceAction("start", serviceName)
+				}
+			}(name))
+
+			stopButton := widget.NewButton("Stop", func(serviceName string) func() {
+				return func() {
+					runServiceAction("stop", serviceName)
+				}
+			}(name))
+
+			restartButton := widget.NewButton("Restart", func(serviceName string) func() {
+				return func() {
+					runServiceAction("restart", serviceName)
+				}
+			}(name))
+
+			row := container.NewVBox(
+				container.NewBorder(
+					nil,
+					nil,
+					infoBox,
+					nil,
+					nil,
+				),
+				container.NewHBox(logsButton, startButton, stopButton, restartButton),
+				widget.NewSeparator(),
+			)
+
+			rows = append(rows, row)
+		}
+
+		return rows
 	}
-
-	return rows
-}
 
 	buildFavoriteContainerRows := func() []fyne.CanvasObject {
 		if len(appstate.Config.FavoriteContainers) == 0 {
@@ -157,6 +205,36 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 			containerMap[c.Names] = c
 		}
 
+		runContainerAction := func(action, containerName string) {
+			dialog.ShowConfirm(
+				"Confirm "+action,
+				fmt.Sprintf("%s container %s?", strings.Title(action), containerName),
+				func(ok bool) {
+					if !ok {
+						return
+					}
+
+					go func() {
+						err := system.ControlDockerContainer(action, containerName)
+
+						fyne.Do(func() {
+							if err != nil {
+								if system.IsPermissionError(err) {
+									ShowErrorMsg(parent, system.BuildPermissionHint("docker", action, containerName))
+								} else {
+									ShowError(parent, err)
+								}
+								return
+							}
+
+							refreshButtonTapped()
+						})
+					}()
+				},
+				parent,
+			)
+		}
+
 		rows := make([]fyne.CanvasObject, 0, len(appstate.Config.FavoriteContainers))
 
 		for _, name := range appstate.Config.FavoriteContainers {
@@ -168,7 +246,14 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 			}
 
 			nameLabel := widget.NewLabel(name)
-			statusLabel := widget.NewLabel(statusText)
+			nameLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+			statusTextObj := makeStatusText(statusText)
+
+			infoBox := container.NewVBox(
+				nameLabel,
+				statusTextObj,
+			)
 
 			logsButton := widget.NewButton("Logs", func(containerName string) func() {
 				return func() {
@@ -183,43 +268,34 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 				}
 			}(name))
 
-			restartButton := widget.NewButton("Restart", func(containerName string) func() {
+			startButton := widget.NewButton("Start", func(containerName string) func() {
 				return func() {
-					dialog.ShowConfirm(
-						"Confirm restart",
-						"Restart container "+containerName+"?",
-						func(ok bool) {
-							if !ok {
-								return
-							}
-
-							go func() {
-								err := system.ControlDockerContainer("restart", containerName)
-								fyne.Do(func() {
-									if err != nil {
-										if system.IsPermissionError(err) {
-											ShowErrorMsg(parent, system.BuildPermissionHint("docker", "restart", containerName))
-										} else {
-											ShowError(parent, err)
-										}
-										return
-									}
-
-									refreshButtonTapped()
-								})
-							}()
-						},
-						parent,
-					)
+					runContainerAction("start", containerName)
 				}
 			}(name))
 
-			row := container.NewBorder(
-				nil,
-				nil,
-				container.NewVBox(nameLabel, statusLabel),
-				container.NewHBox(logsButton, restartButton),
-				nil,
+			stopButton := widget.NewButton("Stop", func(containerName string) func() {
+				return func() {
+					runContainerAction("stop", containerName)
+				}
+			}(name))
+
+			restartButton := widget.NewButton("Restart", func(containerName string) func() {
+				return func() {
+					runContainerAction("restart", containerName)
+				}
+			}(name))
+
+			row := container.NewVBox(
+				container.NewBorder(
+					nil,
+					nil,
+					infoBox,
+					nil,
+					nil,
+				),
+				container.NewHBox(logsButton, startButton, stopButton, restartButton),
+				widget.NewSeparator(),
 			)
 
 			rows = append(rows, row)
@@ -400,7 +476,10 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 
 	topRow := container.NewGridWithColumns(3, cpuCard, ramCard, diskCard)
 	middleRow := container.NewGridWithColumns(3, uptimeCard, servicesCard, dockerCard)
-	bottomRow := container.NewGridWithColumns(3, favoriteServicesCard, favoriteContainersCard, problemsCard)
+	bottomRow := container.NewGridWithColumns(2,
+		container.NewVBox(favoriteServicesCard, favoriteContainersCard),
+		problemsCard,
+	)
 
 	content := container.NewVBox(
 		title,
