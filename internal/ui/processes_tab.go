@@ -46,6 +46,8 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 
 	detailsButton := widget.NewButton("Details", nil)
 	detailsButton.Disable()
+	killButton := widget.NewButton("Kill", nil)
+	killButton.Disable()
 
 	getSelectedItem := func() (*system.PortProcessInfo, bool) {
 		if selectedIndex < 0 || selectedIndex >= len(filteredItems) {
@@ -58,9 +60,11 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 	updateButtons := func() {
 		if selectedIndex >= 0 && selectedIndex < len(filteredItems) {
 			detailsButton.Enable()
+			killButton.Enable()
 			return
 		}
 		detailsButton.Disable()
+		killButton.Disable()
 	}
 
 	filterItems := func(query string) []system.PortProcessInfo {
@@ -243,6 +247,47 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 			parent,
 		)
 	}
+	killButton.OnTapped = func() {
+		item, ok := getSelectedItem()
+		if !ok {
+			statusLabel.SetText("Выбери запись из списка")
+			return
+		}
+
+		if item.PID <= 0 {
+			statusLabel.SetText("Невозможно завершить процесс")
+			return
+		}
+
+		dialog.ShowConfirm(
+			"Confirm kill",
+			fmt.Sprintf("Kill process %s (PID %d)?", item.ProcessName, item.PID),
+			func(confirm bool) {
+				if !confirm {
+					return
+				}
+
+				go func() {
+					err := system.KillProcess(item.PID)
+
+					fyne.Do(func() {
+						if err != nil {
+							if system.IsPermissionError(err) {
+								ShowErrorMsg(parent, "Недостаточно прав для завершения процесса")
+							} else {
+								ShowError(parent, err)
+							}
+							return
+						}
+
+						statusLabel.SetText("Процесс завершён")
+						refreshData()
+					})
+				}()
+			},
+			parent,
+		)
+	}
 
 	refreshButton := widget.NewButton("Обновить", func() {
 		go refreshData()
@@ -252,6 +297,7 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 		refreshButton,
 		autoRefreshCheck,
 		detailsButton,
+		killButton,
 	)
 
 	content := container.NewBorder(
