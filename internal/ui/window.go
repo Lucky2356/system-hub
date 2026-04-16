@@ -15,6 +15,7 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 		container.NewTabItem("Dashboard", buildDashboardTab(w, cfg)),
 		container.NewTabItem("Services", buildServicesTab(w, cfg)),
 		container.NewTabItem("Docker", buildDockerTab(w, cfg)),
+		container.NewTabItem("Processes", buildProcessesTab(w)),
 		container.NewTabItem("System Info", NewSystemInfoTab(w)),
 		container.NewTabItem("Logs", buildLogsTab(cfg)),
 		container.NewTabItem("Activity", buildActivityTab()),
