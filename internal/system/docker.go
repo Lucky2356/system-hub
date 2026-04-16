@@ -171,3 +171,24 @@ func GetDockerContainerLogs(containerName string, lines int) (string, error) {
 
 	return string(output), nil
 }
+
+func GetDockerContainerInspect(containerName string) (string, error) {
+	containerName = strings.TrimSpace(containerName)
+	if containerName == "" {
+		return "", fmt.Errorf("container name is empty")
+	}
+
+	out, err := exec.Command("docker", "inspect", containerName).CombinedOutput()
+	if err != nil {
+		if len(out) == 0 {
+			return "", err
+		}
+		return string(out), err
+	}
+
+	if len(out) == 0 {
+		return "No output", nil
+	}
+
+	return string(out), nil
+}

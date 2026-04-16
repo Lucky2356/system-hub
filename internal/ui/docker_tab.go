@@ -47,6 +47,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	autoRefreshStarted := false
 
 	detailsButton := widget.NewButton("Подробнее", nil)
+	inspectButton := widget.NewButton("Inspect", nil)
 	logsButton := widget.NewButton("Logs", nil)
 	startButton := widget.NewButton("Start", nil)
 	stopButton := widget.NewButton("Stop", nil)
@@ -54,6 +55,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	favoriteButton := widget.NewButton("☆", nil)
 
 	detailsButton.Disable()
+	inspectButton.Disable()
 	logsButton.Disable()
 	startButton.Disable()
 	stopButton.Disable()
@@ -64,6 +66,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		hasSelection := selectedIndex >= 0 && selectedIndex < len(filteredContainers)
 		if hasSelection {
 			detailsButton.Enable()
+			inspectButton.Enable()
 			logsButton.Enable()
 			startButton.Enable()
 			stopButton.Enable()
@@ -80,6 +83,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		}
 
 		detailsButton.Disable()
+		inspectButton.Disable()
 		logsButton.Disable()
 		startButton.Disable()
 		stopButton.Disable()
@@ -413,6 +417,47 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		showContainerDetails(*c)
 	}
 
+	inspectButton.OnTapped = func() {
+		c, ok := getSelectedContainer()
+		if !ok {
+			statusLabel.SetText("Выбери контейнер из списка")
+			updateActionButtons()
+			return
+		}
+
+		statusLabel.SetText("Статус: загрузка docker inspect...")
+
+		go func(containerName string) {
+			result, err := system.GetDockerContainerInspect(containerName)
+
+			fyne.Do(func() {
+				if err != nil {
+					if system.IsPermissionError(err) {
+						ShowErrorMsg(parent, system.BuildPermissionHint("docker", "inspect", containerName))
+					} else {
+						ShowError(parent, err)
+					}
+					statusLabel.SetText("Статус: ошибка docker inspect")
+					return
+				}
+
+				output := widget.NewMultiLineEntry()
+				output.SetText(result)
+				output.Wrapping = fyne.TextWrapWord
+				output.Disable()
+
+				dialog.ShowCustom(
+					"Docker Inspect: "+containerName,
+					"Закрыть",
+					container.NewPadded(output),
+					parent,
+				)
+
+				statusLabel.SetText("Статус: docker inspect загружен")
+			})
+		}(c.Names)
+	}
+
 	logsButton.OnTapped = func() {
 		c, ok := getSelectedContainer()
 		if !ok {
@@ -445,6 +490,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		autoRefreshCheck,
 		favoriteButton,
 		detailsButton,
+		inspectButton,
 		logsButton,
 		startButton,
 		stopButton,
