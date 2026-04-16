@@ -60,14 +60,44 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 		}()
 	}
 
+	buildBundle := func() {
+		statusLabel.SetText("Статус: сбор diagnostics bundle...")
+
+		logLines := 100
+		fmt.Sscanf(linesEntry.Text, "%d", &logLines)
+		if logLines <= 0 {
+			logLines = 100
+		}
+
+		go func() {
+			report, err := system.BuildDiagnosticsBundle(system.DiagnosticsBundleParams{
+				FavoriteServices:   appstate.Config.FavoriteServices,
+				FavoriteContainers: appstate.Config.FavoriteContainers,
+				LogLines:           logLines,
+				TopProcessLimit:    5,
+			})
+
+			if err != nil {
+				fyne.Do(func() {
+					ShowError(parent, err)
+					statusLabel.SetText("Статус: ошибка сборки bundle")
+				})
+				return
+			}
+
+			fyne.Do(func() {
+				reportOutput.SetText(report)
+				statusLabel.SetText("Статус: diagnostics bundle собран")
+			})
+		}()
+	}
+
 	saveReport := func() {
 		reportText := reportOutput.Text
 		if reportText == "" {
 			statusLabel.SetText("Статус: сначала собери отчёт")
 			return
 		}
-
-		filename := fmt.Sprintf("system-hub-report-%s.txt", time.Now().Format("20060102-150405"))
 
 		dialog.ShowFileSave(func(writer fyne.URIWriteCloser, err error) {
 			if err != nil {
@@ -90,8 +120,6 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 
 			statusLabel.SetText("Статус: отчёт сохранён")
 		}, parent)
-
-		_ = filename
 	}
 
 	saveToDefaultLocation := func() {
@@ -121,6 +149,7 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 	}
 
 	buildButton := widget.NewButton("Собрать отчёт", buildReport)
+	bundleButton := widget.NewButton("Diagnostics bundle", buildBundle)
 	saveButton := widget.NewButton("Сохранить как...", saveReport)
 	quickSaveButton := widget.NewButton("Быстро сохранить в Home", saveToDefaultLocation)
 
@@ -131,7 +160,7 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 			widget.NewSeparator(),
 			widget.NewLabel("Log lines for each favorite service/container"),
 			linesEntry,
-			container.NewHBox(buildButton, saveButton, quickSaveButton),
+			container.NewHBox(buildButton, bundleButton, saveButton, quickSaveButton),
 			statusLabel,
 			widget.NewSeparator(),
 		),
