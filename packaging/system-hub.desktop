@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=System Hub
+GenericName=System Administration Tool
+Comment=Monitor and manage system services, Docker containers, logs and processes
+Categories=System;Monitor;
+Keywords=system;docker;services;logs;monitoring;
+Exec=system-hub
+Icon=system-hub
+Terminal=false
+Type=Application
+StartupNotify=true

@@ -9,7 +9,7 @@ License:        MIT
 URL:            https://github.com/Lucky2356/system-hub
 Source0:        %{name}-%{version}.tar.gz
 
-BuildRequires:  golang
+BuildRequires:  golang >= 1.26
 BuildRequires:  gcc
 
 Requires:       systemd
@@ -28,7 +28,7 @@ go build -trimpath -ldflags="-s -w" -o system-hub ./cmd/system-hub
 %install
 install -Dpm0755 system-hub %{buildroot}%{_bindir}/system-hub
 install -Dpm0644 packaging/system-hub.desktop %{buildroot}%{_datadir}/applications/system-hub.desktop
-install -Dpm0644 Icon.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/system-hub.png
+install -Dpm0644 cmd/system-hub/Icon.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/system-hub.png
 
 %files
 %{_bindir}/system-hub
@@ -36,5 +36,5 @@ install -Dpm0644 Icon.png %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/sys
 %{_datadir}/icons/hicolor/256x256/apps/system-hub.png
 
 %changelog
-* Sat Mar 22 2026 You <you@example.com> - 0.1.0-1
+* Tue May 19 2026 System Hub Team <dev@system-hub.example.com> - 0.1.0-1
 - Initial Fedora RPM

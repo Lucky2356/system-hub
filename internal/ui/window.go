@@ -1,11 +1,17 @@
 package ui
 
 import (
+	"log"
+	"path/filepath"
+
 	"github.com/Lucky2356/system-hub/internal/config"
+	"github.com/Lucky2356/system-hub/internal/appstate"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
 )
 
 func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
@@ -28,6 +34,40 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 
 	tabs.SetTabLocation(container.TabLocationTop)
 
+	isDark := cfg.Theme != "light"
+
+	themeBtn := widget.NewButton("", func() {
+		isDark = !isDark
+		if isDark {
+			a.Settings().SetTheme(theme.DarkTheme())
+			themeBtn.SetText("☀")
+		} else {
+			a.Settings().SetTheme(theme.LightTheme())
+			themeBtn.SetText("🌙")
+		}
+
+		newCfg := appstate.GetConfig()
+		newCfg.Theme = "dark"
+		if !isDark {
+			newCfg.Theme = "light"
+		}
+		appstate.SetConfig(newCfg)
+
+		cfgPath, err := config.ConfigFilePath()
+		if err == nil {
+			dir := filepath.Dir(cfgPath)
+			savePath := filepath.Join(dir, "config.json")
+			if err := config.Save(newCfg); err != nil {
+				log.Printf("save theme config: %v", err)
+			}
+		}
+	})
+	if isDark {
+		themeBtn.SetText("☀")
+	} else {
+		themeBtn.SetText("🌙")
+	}
+
 	ctrlR := &desktop.CustomShortcut{KeyName: fyne.KeyR, Modifier: fyne.KeyModifierControl}
 	w.Canvas().AddShortcut(ctrlR, func(shortcut fyne.Shortcut) {
 		selected := tabs.SelectedIndex()
@@ -43,6 +83,12 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 		}
 	})
 
-	w.SetContent(tabs)
+	topBar := container.NewBorder(
+		nil, nil, nil, themeBtn,
+		container.NewHBox(),
+	)
+
+	content := container.NewBorder(topBar, nil, nil, nil, tabs)
+	w.SetContent(content)
 	return w
 }
