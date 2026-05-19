@@ -11,7 +11,6 @@ import (
 func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 	w := a.NewWindow("System Hub")
 	w.Resize(fyne.NewSize(900, 550))
-	w.SetMinimumSize(fyne.NewSize(700, 400))
 
 	tabs := container.NewAppTabs(
 		container.NewTabItem("Dashboard", buildDashboardTab(w, cfg)),
