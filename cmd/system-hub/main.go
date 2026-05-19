@@ -9,7 +9,6 @@ import (
 	"github.com/Lucky2356/system-hub/internal/logger"
 	"github.com/Lucky2356/system-hub/internal/ui"
 
-	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/theme"
 )
