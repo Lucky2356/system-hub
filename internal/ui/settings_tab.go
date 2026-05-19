@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -11,6 +13,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -36,6 +39,12 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	logViewerAutoRefreshCheck := widget.NewCheck("Log viewer auto refresh", nil)
 	logViewerAutoRefreshCheck.SetChecked(cfg.LogViewerAutoRefresh)
 
+	themeSelect := widget.NewSelect([]string{"dark", "light"}, nil)
+	themeSelect.SetSelected(cfg.Theme)
+	if cfg.Theme == "" {
+		themeSelect.SetSelected("dark")
+	}
+
 	configPath, err := config.ConfigFilePath()
 	if err != nil {
 		configPath = "unavailable"
@@ -56,15 +65,25 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			return
 		}
 
+		appTheme := themeSelect.Selected
+		if appTheme == "" {
+			appTheme = "dark"
+		}
+
 		newCfg := config.Config{
 			RefreshIntervalSeconds: refreshInterval,
 			DefaultLogLines:        defaultLogLines,
+			LogFile:                cfg.LogFile,
 
 			DashboardAutoRefresh: dashboardAutoRefreshCheck.Checked,
 			ServicesAutoRefresh:  servicesAutoRefreshCheck.Checked,
 			DockerAutoRefresh:    dockerAutoRefreshCheck.Checked,
 			LogsAutoRefresh:      logsAutoRefreshCheck.Checked,
 			LogViewerAutoRefresh: logViewerAutoRefreshCheck.Checked,
+
+			FavoriteServices:   cfg.FavoriteServices,
+			FavoriteContainers: cfg.FavoriteContainers,
+			Theme:              appTheme,
 		}
 
 		if err := config.Save(newCfg); err != nil {
@@ -72,7 +91,12 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			statusLabel.SetText("Ошибка сохранения: " + err.Error())
 			return
 		}
-		appstate.Config = newCfg
+		appstate.SetConfig(newCfg)
+
+		if newCfg.Theme == "light" {
+			a := fyne.CurrentApp()
+			a.Settings().SetTheme(theme.LightTheme())
+		}
 
 		statusLabel.SetText("Настройки сохранены")
 		dialog.ShowInformation(
@@ -94,6 +118,10 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		logsAutoRefreshCheck.SetChecked(defaultCfg.LogsAutoRefresh)
 		logViewerAutoRefreshCheck.SetChecked(defaultCfg.LogViewerAutoRefresh)
 
+		themeSelect.SetSelected(defaultCfg.Theme)
+		if defaultCfg.Theme == "" {
+			themeSelect.SetSelected("dark")
+		}
 		statusLabel.SetText("Значения сброшены к default")
 	})
 
@@ -118,6 +146,11 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 		widget.NewSeparator(),
 
+		widget.NewLabel("Theme"),
+		themeSelect,
+
+		widget.NewSeparator(),
+
 		widget.NewLabel("Config file"),
 		widget.NewLabel(configPath),
 
@@ -126,6 +159,67 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		container.NewHBox(
 			saveButton,
 			resetButton,
+		),
+
+		container.NewHBox(
+			widget.NewButton("Export config", func() {
+				dialog.ShowFileSave(func(writer fyne.URIWriteCloser, err error) {
+					if err != nil || writer == nil {
+						return
+					}
+					defer writer.Close()
+
+					cfgPath, err := config.ConfigFilePath()
+					if err != nil {
+						ShowError(parent, err)
+						return
+					}
+
+					data, err := os.ReadFile(cfgPath)
+					if err != nil {
+						ShowError(parent, err)
+						return
+					}
+
+					if _, err := writer.Write(data); err != nil {
+						ShowError(parent, err)
+					}
+				}, parent)
+			}),
+			widget.NewButton("Import config", func() {
+				dialog.ShowFileOpen(func(reader fyne.URIReadCloser, err error) {
+					if err != nil || reader == nil {
+						return
+					}
+					defer reader.Close()
+
+					data, err := io.ReadAll(reader)
+					if err != nil {
+						ShowError(parent, err)
+						return
+					}
+
+					cfgPath, err := config.ConfigFilePath()
+					if err != nil {
+						ShowError(parent, err)
+						return
+					}
+
+					if err := os.WriteFile(cfgPath, data, 0o644); err != nil {
+						ShowError(parent, err)
+						return
+					}
+
+					loaded, err := config.Load()
+					if err != nil {
+						ShowError(parent, err)
+						return
+					}
+
+					appstate.SetConfig(loaded)
+					statusLabel.SetText("Настройки импортированы. Перезапустите приложение.")
+				}, parent)
+			}),
 		),
 
 		statusLabel,

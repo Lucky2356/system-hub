@@ -8,15 +8,17 @@ import (
 )
 
 func isFavoriteService(name string) bool {
-	return slices.Contains(appstate.Config.FavoriteServices, name)
+	cfg := appstate.GetConfig()
+	return slices.Contains(cfg.FavoriteServices, name)
 }
 
 func isFavoriteContainer(name string) bool {
-	return slices.Contains(appstate.Config.FavoriteContainers, name)
+	cfg := appstate.GetConfig()
+	return slices.Contains(cfg.FavoriteContainers, name)
 }
 
 func toggleFavoriteService(name string) error {
-	cfg := appstate.Config
+	cfg := appstate.GetConfig()
 
 	if slices.Contains(cfg.FavoriteServices, name) {
 		cfg.FavoriteServices = removeString(cfg.FavoriteServices, name)
@@ -28,7 +30,7 @@ func toggleFavoriteService(name string) error {
 }
 
 func toggleFavoriteContainer(name string) error {
-	cfg := appstate.Config
+	cfg := appstate.GetConfig()
 
 	if slices.Contains(cfg.FavoriteContainers, name) {
 		cfg.FavoriteContainers = removeString(cfg.FavoriteContainers, name)
@@ -56,6 +58,6 @@ func saveRuntimeConfig(cfg config.Config) error {
 		return err
 	}
 
-	appstate.Config = cfg
+	appstate.SetConfig(cfg)
 	return nil
 }

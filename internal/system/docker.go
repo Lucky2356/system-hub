@@ -3,7 +3,6 @@ package system
 import (
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"sort"
 	"strings"
 )
@@ -16,22 +15,17 @@ type DockerContainerInfo struct {
 	Status string
 }
 
-func ListDockerContainers() ([]DockerContainerInfo, error) {
-	cmd := exec.Command(
-		"docker",
-		"ps",
-		"-a",
-		"--format",
-		"{{json .}}",
-	)
+type DockerImageInfo struct {
+	ID         string
+	Repository string
+	Tag        string
+	Size       string
+}
 
-	output, err := cmd.CombinedOutput()
+func ListDockerContainers() ([]DockerContainerInfo, error) {
+	output, err := runCmd("docker", "ps", "-a", "--format", "{{json .}}")
 	if err != nil {
-		text := strings.TrimSpace(string(output))
-		if text == "" {
-			return nil, fmt.Errorf("run docker ps: %w", err)
-		}
-		return nil, fmt.Errorf("run docker ps: %s", text)
+		return nil, fmt.Errorf("run docker ps: %w", err)
 	}
 
 	rawText := strings.TrimSpace(string(output))
@@ -129,14 +123,9 @@ func ControlDockerContainer(action string, containerName string) error {
 		return fmt.Errorf("unsupported docker action: %s", action)
 	}
 
-	cmd := exec.Command("docker", action, containerName)
-	output, err := cmd.CombinedOutput()
+	_, err := runCmd("docker", action, containerName)
 	if err != nil {
-		text := strings.TrimSpace(string(output))
-		if text == "" {
-			return fmt.Errorf("docker %s %s: %w", action, containerName, err)
-		}
-		return fmt.Errorf("docker %s %s: %s", action, containerName, text)
+		return fmt.Errorf("docker %s %s: %w", action, containerName, err)
 	}
 
 	return nil
@@ -152,24 +141,90 @@ func GetDockerContainerLogs(containerName string, lines int) (string, error) {
 		lines = 100
 	}
 
-	cmd := exec.Command(
-		"docker",
-		"logs",
-		"--tail",
-		fmt.Sprintf("%d", lines),
-		containerName,
-	)
-
-	output, err := cmd.CombinedOutput()
+	output, err := runCmd("docker", "logs", "--tail", fmt.Sprintf("%d", lines), containerName)
 	if err != nil {
-		text := strings.TrimSpace(string(output))
-		if text == "" {
-			return "", fmt.Errorf("docker logs %s: %w", containerName, err)
-		}
-		return "", fmt.Errorf("docker logs %s: %s", containerName, text)
+		return "", fmt.Errorf("docker logs %s: %w", containerName, err)
 	}
 
 	return string(output), nil
+}
+
+func ListDockerImages() ([]DockerImageInfo, error) {
+	output, err := runCmd("docker", "images", "--format", "{{json .}}")
+	if err != nil {
+		return nil, fmt.Errorf("run docker images: %w", err)
+	}
+
+	rawText := strings.TrimSpace(string(output))
+	if rawText == "" {
+		return []DockerImageInfo{}, nil
+	}
+
+	lines := strings.Split(rawText, "\n")
+	var images []DockerImageInfo
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		var raw struct {
+			ID         string `json:"ID"`
+			Repository string `json:"Repository"`
+			Tag        string `json:"Tag"`
+			Size       string `json:"Size"`
+		}
+
+		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+			return nil, fmt.Errorf("parse docker images output: %w", err)
+		}
+
+		if raw.Repository == "<none>" {
+			continue
+		}
+
+		images = append(images, DockerImageInfo{
+			ID:         raw.ID,
+			Repository: raw.Repository,
+			Tag:        raw.Tag,
+			Size:       raw.Size,
+		})
+	}
+
+	sort.SliceStable(images, func(i, j int) bool {
+		return images[i].Repository < images[j].Repository
+	})
+
+	return images, nil
+}
+
+func PullDockerImage(imageName string) error {
+	imageName = strings.TrimSpace(imageName)
+	if imageName == "" {
+		return fmt.Errorf("image name is empty")
+	}
+
+	_, err := runCmd("docker", "pull", imageName)
+	if err != nil {
+		return fmt.Errorf("docker pull %s: %w", imageName, err)
+	}
+
+	return nil
+}
+
+func RemoveDockerImage(imageName string) error {
+	imageName = strings.TrimSpace(imageName)
+	if imageName == "" {
+		return fmt.Errorf("image name is empty")
+	}
+
+	_, err := runCmd("docker", "rmi", imageName)
+	if err != nil {
+		return fmt.Errorf("docker rmi %s: %w", imageName, err)
+	}
+
+	return nil
 }
 
 func GetDockerContainerInspect(containerName string) (string, error) {
@@ -178,17 +233,14 @@ func GetDockerContainerInspect(containerName string) (string, error) {
 		return "", fmt.Errorf("container name is empty")
 	}
 
-	out, err := exec.Command("docker", "inspect", containerName).CombinedOutput()
+	output, err := runCmd("docker", "inspect", containerName)
 	if err != nil {
-		if len(out) == 0 {
-			return "", err
-		}
-		return string(out), err
+		return "", fmt.Errorf("docker inspect %s: %w", containerName, err)
 	}
 
-	if len(out) == 0 {
+	if len(output) == 0 {
 		return "No output", nil
 	}
 
-	return string(out), nil
+	return string(output), nil
 }

@@ -3,8 +3,8 @@ package system
 import (
 	"fmt"
 	"math"
-	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,10 +12,22 @@ import (
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/host"
 	"github.com/shirou/gopsutil/v4/mem"
+	"github.com/shirou/gopsutil/v4/net"
 )
+
+type NetStats struct {
+	BytesSent uint64
+	BytesRecv uint64
+}
+
+type CPUCoreStat struct {
+	Core    int
+	Percent float64
+}
 
 type Stats struct {
 	CPUPercent float64
+	PerCPU     []CPUCoreStat
 
 	RAMUsed    uint64
 	RAMTotal   uint64
@@ -37,6 +49,11 @@ type Stats struct {
 	DockerContainerCount int
 	DockerRunningCount   int
 	DockerCountKnown     bool
+
+	NetSent uint64
+	NetRecv uint64
+
+	Temperatures []SensorInfo
 }
 
 func GetStats() (Stats, error) {
@@ -48,6 +65,14 @@ func GetStats() (Stats, error) {
 	}
 	if len(cpuPercents) > 0 {
 		result.CPUPercent = round(cpuPercents[0], 1)
+	}
+
+	perCPU, err := cpu.Percent(0, true)
+	if err == nil {
+		result.PerCPU = make([]CPUCoreStat, len(perCPU))
+		for i, p := range perCPU {
+			result.PerCPU[i] = CPUCoreStat{Core: i, Percent: round(p, 1)}
+		}
 	}
 
 	vm, err := mem.VirtualMemory()
@@ -72,6 +97,14 @@ func GetStats() (Stats, error) {
 		result.UptimeSeconds = uptime
 		result.UptimeKnown = true
 	}
+
+	netIO, err := net.IOCounters(false)
+	if err == nil && len(netIO) > 0 {
+		result.NetSent = netIO[0].BytesSent
+		result.NetRecv = netIO[0].BytesRecv
+	}
+
+	result.Temperatures = GetTemperatures()
 
 	result.SystemdAvailable = IsSystemdAvailable()
 	result.DockerAvailable = IsDockerAvailable()
@@ -109,21 +142,13 @@ func getSystemUptime() (uint64, error) {
 }
 
 func getWindowsUptime() (uint64, error) {
-	// PowerShell-вариант надёжнее, чем wmic, потому что wmic часто отсутствует
-	cmd := exec.Command(
-		"powershell",
+	output, err := runCmd("powershell",
 		"-NoProfile",
 		"-Command",
 		`(Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime | Select-Object -ExpandProperty TotalSeconds`,
 	)
-
-	output, err := cmd.CombinedOutput()
 	if err != nil {
-		text := strings.TrimSpace(string(output))
-		if text == "" {
-			return 0, err
-		}
-		return 0, fmt.Errorf("%s",text)
+		return 0, err
 	}
 
 	text := strings.TrimSpace(string(output))
@@ -131,8 +156,7 @@ func getWindowsUptime() (uint64, error) {
 		return 0, fmt.Errorf("empty uptime output")
 	}
 
-	var seconds float64
-	_, err = fmt.Sscanf(text, "%f", &seconds)
+	seconds, err := strconv.ParseFloat(text, 64)
 	if err != nil {
 		return 0, fmt.Errorf("parse uptime: %w", err)
 	}
@@ -186,14 +210,14 @@ func FormatUptime(seconds uint64) string {
 	minutes := d / time.Minute
 
 	if days > 0 {
-		return fmt.Sprintf("%d д %d ч %d мин", days, hours, minutes)
+		return fmt.Sprintf("%dd %dh %dm", days, hours, minutes)
 	}
 
 	if hours > 0 {
-		return fmt.Sprintf("%d ч %d мин", hours, minutes)
+		return fmt.Sprintf("%dh %dm", hours, minutes)
 	}
 
-	return fmt.Sprintf("%d мин", minutes)
+	return fmt.Sprintf("%dm", minutes)
 }
 
 func IsSystemdAvailable() bool {
@@ -201,14 +225,12 @@ func IsSystemdAvailable() bool {
 		return false
 	}
 
-	cmd := exec.Command("systemctl", "--version")
-	err := cmd.Run()
+	_, err := runCmd("systemctl", "--version")
 	return err == nil
 }
 
 func IsDockerAvailable() bool {
-	cmd := exec.Command("docker", "version", "--format", "{{.Client.Version}}")
-	output, err := cmd.CombinedOutput()
+	output, err := runCmd("docker", "version", "--format", "{{.Client.Version}}")
 	if err != nil {
 		return false
 	}

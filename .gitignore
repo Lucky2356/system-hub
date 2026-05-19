@@ -2,6 +2,8 @@
 *.dll
 *.so
 *.dylib
+*.test
+*.out
 bin/
 dist/
 build/
@@ -10,3 +12,6 @@ build/
 .idea/
 .DS_Store
 Thumbs.db
+/system-hub
+/system-hub.exe
+/vendor/

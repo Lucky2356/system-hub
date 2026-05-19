@@ -33,10 +33,24 @@ func GetPresetPaths() []PresetPath {
 	}
 }
 
-func ListFiles(path string) ([]FileEntry, error) {
+func sanitizePath(path string) (string, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
-		return nil, fmt.Errorf("path is empty")
+		return "", fmt.Errorf("path is empty")
+	}
+
+	cleaned := filepath.Clean(path)
+	if cleaned != path {
+		path = cleaned
+	}
+
+	return path, nil
+}
+
+func ListFiles(path string) ([]FileEntry, error) {
+	path, err := sanitizePath(path)
+	if err != nil {
+		return nil, err
 	}
 
 	items, err := os.ReadDir(path)
@@ -71,9 +85,9 @@ func ListFiles(path string) ([]FileEntry, error) {
 }
 
 func ReadTextFile(path string, maxBytes int64) (string, error) {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return "", fmt.Errorf("path is empty")
+	path, err := sanitizePath(path)
+	if err != nil {
+		return "", err
 	}
 
 	if maxBytes <= 0 {
@@ -154,9 +168,9 @@ func FormatFileSize(size int64) string {
 }
 
 func WriteTextFile(path string, content string) error {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return fmt.Errorf("path is empty")
+	path, err := sanitizePath(path)
+	if err != nil {
+		return err
 	}
 
 	info, err := os.Stat(path)
@@ -169,4 +183,58 @@ func WriteTextFile(path string, content string) error {
 	}
 
 	return os.WriteFile(path, []byte(content), info.Mode().Perm())
+}
+
+func CreateFile(path string) error {
+	path, err := sanitizePath(path)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	return f.Close()
+}
+
+func RenameFile(oldPath, newPath string) error {
+	oldPath, err := sanitizePath(oldPath)
+	if err != nil {
+		return err
+	}
+
+	newPath, err = sanitizePath(newPath)
+	if err != nil {
+		return err
+	}
+
+	return os.Rename(oldPath, newPath)
+}
+
+func DeleteFile(path string) error {
+	path, err := sanitizePath(path)
+	if err != nil {
+		return err
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if info.IsDir() {
+		return os.RemoveAll(path)
+	}
+
+	return os.Remove(path)
+}
+
+func CreateDirectory(path string) error {
+	path, err := sanitizePath(path)
+	if err != nil {
+		return err
+	}
+
+	return os.MkdirAll(path, 0o755)
 }

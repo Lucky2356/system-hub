@@ -40,8 +40,8 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 
 		go func() {
 			report, err := system.BuildDiagnosticsReport(system.DiagnosticsReportParams{
-				FavoriteServices:   appstate.Config.FavoriteServices,
-				FavoriteContainers: appstate.Config.FavoriteContainers,
+				FavoriteServices:   appstate.GetConfig().FavoriteServices,
+				FavoriteContainers: appstate.GetConfig().FavoriteContainers,
 				LogLines:           logLines,
 			})
 
@@ -71,8 +71,8 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 
 		go func() {
 			report, err := system.BuildDiagnosticsBundle(system.DiagnosticsBundleParams{
-				FavoriteServices:   appstate.Config.FavoriteServices,
-				FavoriteContainers: appstate.Config.FavoriteContainers,
+				FavoriteServices:   appstate.GetConfig().FavoriteServices,
+				FavoriteContainers: appstate.GetConfig().FavoriteContainers,
 				LogLines:           logLines,
 				TopProcessLimit:    5,
 			})

@@ -44,11 +44,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 	selectedIndex := -1
 	currentPath := ""
 	currentFilePath := ""
-	editMode := false
-
 	updateEditMode := func(enabled bool) {
-		editMode = enabled
-
 		if enabled {
 			fileContent.Enable()
 			statusLabel.SetText("Статус: режим редактирования")
@@ -269,6 +265,122 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		dialog.ShowInformation("File Info", text, parent)
 	})
 
+	newFileButton := widget.NewButton("New File", func() {
+		nameEntry := widget.NewEntry()
+		nameEntry.SetPlaceHolder("filename.txt")
+
+		dialog.ShowCustomConfirm("New File", "Create", "Cancel",
+			container.NewPadded(container.NewVBox(
+				widget.NewLabel("Enter filename in current directory:"),
+				nameEntry,
+			)),
+			func(confirmed bool) {
+				if !confirmed || strings.TrimSpace(nameEntry.Text) == "" {
+					return
+				}
+				newPath := filepath.Join(currentPath, strings.TrimSpace(nameEntry.Text))
+				if err := system.CreateFile(newPath); err != nil {
+					ShowError(parent, err)
+					return
+				}
+				statusLabel.SetText("Статус: файл создан")
+				loadPath(currentPath)
+			},
+			parent,
+		)
+	})
+
+	newDirButton := widget.NewButton("New Dir", func() {
+		nameEntry := widget.NewEntry()
+		nameEntry.SetPlaceHolder("newdir")
+
+		dialog.ShowCustomConfirm("New Directory", "Create", "Cancel",
+			container.NewPadded(container.NewVBox(
+				widget.NewLabel("Enter directory name:"),
+				nameEntry,
+			)),
+			func(confirmed bool) {
+				if !confirmed || strings.TrimSpace(nameEntry.Text) == "" {
+					return
+				}
+				newPath := filepath.Join(currentPath, strings.TrimSpace(nameEntry.Text))
+				if err := system.CreateDirectory(newPath); err != nil {
+					ShowError(parent, err)
+					return
+				}
+				statusLabel.SetText("Статус: директория создана")
+				loadPath(currentPath)
+			},
+			parent,
+		)
+	})
+
+	renameButton := widget.NewButton("Rename", func() {
+		if selectedIndex < 0 || selectedIndex >= len(filteredEntries) {
+			statusLabel.SetText("Статус: выбери файл или папку")
+			return
+		}
+
+		item := filteredEntries[selectedIndex]
+		nameEntry := widget.NewEntry()
+		nameEntry.SetText(item.Name)
+
+		dialog.ShowCustomConfirm("Rename", "Rename", "Cancel",
+			container.NewPadded(container.NewVBox(
+				widget.NewLabel("New name for " + item.Name + ":"),
+				nameEntry,
+			)),
+			func(confirmed bool) {
+				if !confirmed || strings.TrimSpace(nameEntry.Text) == "" {
+					return
+				}
+				newPath := filepath.Join(currentPath, strings.TrimSpace(nameEntry.Text))
+				if err := system.RenameFile(item.FullPath, newPath); err != nil {
+					if system.IsPermissionError(err) {
+						ShowErrorMsg(parent, "Недостаточно прав для переименования")
+					} else {
+						ShowError(parent, err)
+					}
+					return
+				}
+				statusLabel.SetText("Статус: переименовано")
+				loadPath(currentPath)
+			},
+			parent,
+		)
+	})
+
+	deleteButton := widget.NewButton("Delete", func() {
+		if selectedIndex < 0 || selectedIndex >= len(filteredEntries) {
+			statusLabel.SetText("Статус: выбери файл или папку")
+			return
+		}
+
+		item := filteredEntries[selectedIndex]
+		label := "файл"
+		if item.IsDir {
+			label = "директорию (рекурсивно)"
+		}
+
+		dialog.ShowConfirm("Delete", fmt.Sprintf("Удалить %s %s?", label, item.Name), func(confirmed bool) {
+			if !confirmed {
+				return
+			}
+			if err := system.DeleteFile(item.FullPath); err != nil {
+				if system.IsPermissionError(err) {
+					ShowErrorMsg(parent, "Недостаточно прав для удаления")
+				} else {
+					ShowError(parent, err)
+				}
+				return
+			}
+			statusLabel.SetText("Статус: удалено")
+			currentFilePath = ""
+			fileContent.SetText("")
+			loadPath(currentPath)
+		}, parent)
+	})
+
 	fileList.OnSelected = func(id widget.ListItemID) {
 		selectedIndex = id
 	}
@@ -287,7 +399,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 			presetSelect,
 			pathEntry,
 			searchEntry,
-			container.NewHBox(openButton, upButton, viewButton, editButton, reloadButton, saveButton, infoButton),
+			container.NewHBox(openButton, upButton, viewButton, editButton, reloadButton, saveButton, infoButton, newFileButton, newDirButton, renameButton, deleteButton),
 			statusLabel,
 			widget.NewSeparator(),
 		),
@@ -333,8 +445,6 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 	})
 
 	loadPath(pathEntry.Text)
-
-	_ = editMode
 
 	return container.NewPadded(contentContainer)
 }

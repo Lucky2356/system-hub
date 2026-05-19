@@ -39,7 +39,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	targetSelect.PlaceHolder = "Выбери источник"
 
 	linesEntry := widget.NewEntry()
-	linesEntry.SetText(strconv.Itoa(appstate.Config.DefaultLogLines))
+	linesEntry.SetText(strconv.Itoa(appstate.GetConfig().DefaultLogLines))
 
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск по уже загруженным логам")
@@ -63,11 +63,14 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	reloadSourcesButton := widget.NewButton("Обновить список", nil)
 	copyButton := widget.NewButton("Copy logs", nil)
 	saveButton := widget.NewButton("Save to file", nil)
+	followButton := widget.NewButton("Follow", nil)
 
 	var rawLogs string
 	var autoRefreshStarted bool
+	var followStarted bool
 	var lastSelectedTarget string
 	stopAutoRefresh := make(chan struct{})
+	stopFollow := make(chan struct{})
 
 	var loadMu sync.Mutex
 	isLoading := false
@@ -394,6 +397,12 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		levelSelect.SetSelected("All")
 		updateTargetState()
 		loadTargets()
+
+		if followStarted {
+			close(stopFollow)
+			followStarted = false
+			followButton.SetText("Follow")
+		}
 	}
 
 	searchEntry.OnChanged = func(string) {
@@ -410,6 +419,37 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 
 	reloadSourcesButton.OnTapped = func() {
 		loadTargets()
+	}
+
+	followButton.OnTapped = func() {
+		if followStarted {
+			close(stopFollow)
+			followStarted = false
+			followButton.SetText("Follow")
+			statusLabel.SetText("Статус: follow остановлен")
+			return
+		}
+
+		loadLogs()
+		followStarted = true
+		followButton.SetText("Following...")
+		stopFollow = make(chan struct{})
+
+		go func() {
+			ticker := time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					fyne.Do(func() {
+						loadLogs()
+					})
+				case <-stopFollow:
+					return
+				}
+			}
+		}()
 	}
 
 	copyButton.OnTapped = func() {
@@ -472,6 +512,10 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 
 	autoRefreshCheck.OnChanged = func(checked bool) {
 		if !checked {
+			if autoRefreshStarted {
+				close(stopAutoRefresh)
+				autoRefreshStarted = false
+			}
 			return
 		}
 
@@ -479,6 +523,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 			return
 		}
 		autoRefreshStarted = true
+		stopAutoRefresh = make(chan struct{})
 
 		go func() {
 			ticker := time.NewTicker(time.Duration(cfg.RefreshIntervalSeconds) * time.Second)
@@ -527,7 +572,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 				levelSelect,
 			),
 		),
-		container.NewHBox(refreshButton, reloadSourcesButton, copyButton, saveButton, autoRefreshCheck),
+		container.NewHBox(refreshButton, reloadSourcesButton, copyButton, saveButton, followButton, autoRefreshCheck),
 		statusLabel,
 		infoLabel,
 		widget.NewSeparator(),
@@ -549,6 +594,8 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	if cfg.LogsAutoRefresh {
 		autoRefreshCheck.OnChanged(true)
 	}
+
+	RegisterRefresh("Logs", loadLogs)
 
 	return container.NewPadded(content)
 }

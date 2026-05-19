@@ -99,16 +99,5 @@ func buildActivityTab() fyne.CanvasObject {
 
 	refreshView()
 
-	go func() {
-		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
-
-		for range ticker.C {
-			fyne.Do(func() {
-				refreshView()
-			})
-		}
-	}()
-
 	return container.NewPadded(content)
 }

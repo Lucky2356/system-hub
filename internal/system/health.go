@@ -49,7 +49,7 @@ func checkFavoriteServices(favorites []string) []string {
 
 	services, err := ListServices()
 	if err != nil {
-		return []string{"Unable to проверить избранные сервисы: " + err.Error()}
+		return []string{"Unable to check favorite services: " + err.Error()}
 	}
 
 	serviceMap := make(map[string]ServiceInfo, len(services))
@@ -86,7 +86,7 @@ func checkFavoriteContainers(favorites []string) []string {
 
 	containers, err := ListDockerContainers()
 	if err != nil {
-		return []string{"Unable to проверить избранные контейнеры: " + err.Error()}
+		return []string{"Unable to check favorite containers: " + err.Error()}
 	}
 
 	containerMap := make(map[string]DockerContainerInfo, len(containers))

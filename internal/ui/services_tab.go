@@ -28,6 +28,9 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск (например: ssh, docker...)")
 
+	statusFilter := widget.NewSelect([]string{"All", "Active", "Inactive", "Failed", "Activating"}, nil)
+	statusFilter.SetSelected("All")
+
 	sortSelect := widget.NewSelect([]string{"Name", "Status"}, nil)
 	sortSelect.SetSelected("Name")
 
@@ -39,7 +42,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	lastSelectedServiceName := ""
 
 	autoRefreshCheck := widget.NewCheck(
-		fmt.Sprintf("Auto refresh (%d сек)", appstate.Config.RefreshIntervalSeconds),
+		fmt.Sprintf("Auto refresh (%d сек)", appstate.GetConfig().RefreshIntervalSeconds),
 		nil,
 	)
 	autoRefreshCheck.SetChecked(cfg.ServicesAutoRefresh)
@@ -52,6 +55,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	startButton := widget.NewButton("Start", nil)
 	stopButton := widget.NewButton("Stop", nil)
 	restartButton := widget.NewButton("Restart", nil)
+	enableButton := widget.NewButton("Enable", nil)
+	disableButton := widget.NewButton("Disable", nil)
 	favoriteButton := widget.NewButton("☆", nil)
 
 	detailsButton.Disable()
@@ -60,6 +65,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	startButton.Disable()
 	stopButton.Disable()
 	restartButton.Disable()
+	enableButton.Disable()
+	disableButton.Disable()
 	favoriteButton.Disable()
 
 	updateActionButtons := func() {
@@ -71,6 +78,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			startButton.Enable()
 			stopButton.Enable()
 			restartButton.Enable()
+			enableButton.Enable()
+			disableButton.Enable()
 			favoriteButton.Enable()
 
 			svc := filteredServices[selectedIndex]
@@ -88,6 +97,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		startButton.Disable()
 		stopButton.Disable()
 		restartButton.Disable()
+		enableButton.Disable()
+		disableButton.Disable()
 		favoriteButton.Disable()
 		favoriteButton.SetText("☆")
 	}
@@ -119,9 +130,14 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	filterServices := func(query string) []system.ServiceInfo {
 		query = strings.ToLower(strings.TrimSpace(query))
+		status := statusFilter.Selected
 
 		var result []system.ServiceInfo
 		for _, svc := range allServices {
+			if status != "All" && !strings.EqualFold(svc.ActiveState, status) {
+				continue
+			}
+
 			if query == "" ||
 				strings.Contains(strings.ToLower(svc.Name), query) ||
 				strings.Contains(strings.ToLower(svc.Description), query) {
@@ -286,6 +302,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			startButton.Disable()
 			stopButton.Disable()
 			restartButton.Disable()
+			enableButton.Disable()
+			disableButton.Disable()
 			favoriteButton.Disable()
 
 			go func(serviceName string) {
@@ -337,12 +355,20 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		refreshList()
 	}
 
+	statusFilter.OnChanged = func(string) {
+		refreshList()
+	}
+
 	sortSelect.OnChanged = func(string) {
 		refreshList()
 	}
 
 	autoRefreshCheck.OnChanged = func(checked bool) {
 		if !checked {
+			if autoRefreshStarted {
+				close(stopAutoRefresh)
+				autoRefreshStarted = false
+			}
 			return
 		}
 
@@ -350,9 +376,10 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			return
 		}
 		autoRefreshStarted = true
+		stopAutoRefresh = make(chan struct{})
 
 		go func() {
-			ticker := time.NewTicker(time.Duration(appstate.Config.RefreshIntervalSeconds) * time.Second)
+			ticker := time.NewTicker(time.Duration(appstate.GetConfig().RefreshIntervalSeconds) * time.Second)
 			defer ticker.Stop()
 
 			for {
@@ -470,6 +497,14 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		runServiceAction("restart")
 	}
 
+	enableButton.OnTapped = func() {
+		runServiceAction("enable")
+	}
+
+	disableButton.OnTapped = func() {
+		runServiceAction("disable")
+	}
+
 	refreshButton := widget.NewButton("Обновить", func() {
 		go refreshServices()
 	})
@@ -484,6 +519,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		startButton,
 		stopButton,
 		restartButton,
+		enableButton,
+		disableButton,
 	)
 
 	content := container.NewBorder(
@@ -492,7 +529,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 				title,
 				subtitle,
 				widget.NewSeparator(),
-				searchEntry,
+				container.NewGridWithColumns(2, searchEntry, statusFilter),
 				sortSelect,
 				actionsRow,
 				statusLabel,
@@ -506,6 +543,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	)
 
 	go refreshServices()
+	RegisterRefresh("Services", refreshServices)
 
 	return content
 }

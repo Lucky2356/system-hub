@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"os/exec"
 	"runtime"
 	"sort"
 	"strings"
@@ -23,8 +22,7 @@ func ListServices() ([]ServiceInfo, error) {
 		return nil, errors.New("services are available only on Linux (systemd)")
 	}
 
-	cmd := exec.Command(
-		"systemctl",
+	output, err := runCmd("systemctl",
 		"list-units",
 		"--type=service",
 		"--all",
@@ -32,8 +30,6 @@ func ListServices() ([]ServiceInfo, error) {
 		"--no-legend",
 		"--plain",
 	)
-
-	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("run systemctl list-units: %w", err)
 	}
@@ -88,19 +84,14 @@ func ControlService(action string, serviceName string) error {
 	}
 
 	switch action {
-	case "start", "stop", "restart":
+	case "start", "stop", "restart", "enable", "disable":
 	default:
 		return fmt.Errorf("unsupported action: %s", action)
 	}
 
-	cmd := exec.Command("systemctl", action, serviceName)
-	output, err := cmd.CombinedOutput()
+	_, err := runCmd("systemctl", action, serviceName)
 	if err != nil {
-		text := strings.TrimSpace(string(output))
-		if text == "" {
-			return fmt.Errorf("systemctl %s %s: %w", action, serviceName, err)
-		}
-		return fmt.Errorf("systemctl %s %s: %s", action, serviceName, text)
+		return fmt.Errorf("systemctl %s %s: %w", action, serviceName, err)
 	}
 
 	return nil
@@ -120,20 +111,13 @@ func GetServiceLogs(serviceName string, lines int) (string, error) {
 		lines = 50
 	}
 
-	cmd := exec.Command(
-		"journalctl",
+	output, err := runCmd("journalctl",
 		"-u", serviceName,
 		"-n", fmt.Sprintf("%d", lines),
 		"--no-pager",
 	)
-
-	output, err := cmd.CombinedOutput()
 	if err != nil {
-		text := strings.TrimSpace(string(output))
-		if text == "" {
-			return "", fmt.Errorf("journalctl %s: %w", serviceName, err)
-		}
-		return "", fmt.Errorf("journalctl %s: %s", serviceName, text)
+		return "", fmt.Errorf("journalctl %s: %w", serviceName, err)
 	}
 
 	return string(output), nil

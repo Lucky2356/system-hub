@@ -19,27 +19,32 @@ import (
 )
 
 func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabel("Processes / Ports")
+	title := widget.NewLabel("Processes")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("Просмотр listening ports и процессов")
+	subtitle := widget.NewLabel("Просмотр процессов и listening ports")
+
+	modeSelect := widget.NewSelect([]string{"Top Processes", "Listening Ports"}, nil)
+	modeSelect.SetSelected("Top Processes")
 
 	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Поиск: 80, 443, nginx, 5432, PID...")
+	searchEntry.SetPlaceHolder("Поиск по имени, PID, порту...")
 
-	sortSelect := widget.NewSelect([]string{"Port", "Process", "PID"}, nil)
-	sortSelect.SetSelected("Port")
+	sortSelect := widget.NewSelect([]string{"CPU", "Memory", "PID", "Name"}, nil)
+	sortSelect.SetSelected("CPU")
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
 
 	autoRefreshCheck := widget.NewCheck(
-		fmt.Sprintf("Auto refresh (%d сек)", appstate.Config.RefreshIntervalSeconds),
+		fmt.Sprintf("Auto refresh (%d сек)", appstate.GetConfig().RefreshIntervalSeconds),
 		nil,
 	)
 	autoRefreshCheck.SetChecked(false)
 
-	var allItems []system.PortProcessInfo
-	var filteredItems []system.PortProcessInfo
+	var allProcs []system.ProcessUsageInfo
+	var filteredProcs []system.ProcessUsageInfo
+	var allPorts []system.PortProcessInfo
+	var filteredPorts []system.PortProcessInfo
 	selectedIndex := -1
 	autoRefreshStarted := false
 	stopAutoRefresh := make(chan struct{})
@@ -49,147 +54,176 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 	killButton := widget.NewButton("Kill", nil)
 	killButton.Disable()
 
-	getSelectedItem := func() (*system.PortProcessInfo, bool) {
-		if selectedIndex < 0 || selectedIndex >= len(filteredItems) {
-			return nil, false
-		}
-		item := filteredItems[selectedIndex]
-		return &item, true
+	isPortsMode := func() bool {
+		return modeSelect.Selected == "Listening Ports"
 	}
 
 	updateButtons := func() {
-		if selectedIndex >= 0 && selectedIndex < len(filteredItems) {
-			detailsButton.Enable()
-			killButton.Enable()
-			return
+		if isPortsMode() {
+			if selectedIndex >= 0 && selectedIndex < len(filteredPorts) {
+				detailsButton.Enable()
+				killButton.Enable()
+				return
+			}
+		} else {
+			if selectedIndex >= 0 && selectedIndex < len(filteredProcs) {
+				detailsButton.Enable()
+				killButton.Enable()
+				return
+			}
 		}
 		detailsButton.Disable()
 		killButton.Disable()
 	}
 
-	filterItems := func(query string) []system.PortProcessInfo {
-		query = strings.ToLower(strings.TrimSpace(query))
-
-		result := make([]system.PortProcessInfo, 0)
-
-		for _, item := range allItems {
-			portText := strconv.Itoa(int(item.LocalPort))
-			pidText := strconv.Itoa(int(item.PID))
-
-			if query == "" ||
-				strings.Contains(strings.ToLower(item.ProcessName), query) ||
-				strings.Contains(strings.ToLower(item.LocalAddr), query) ||
-				strings.Contains(strings.ToLower(item.Proto), query) ||
-				strings.Contains(strings.ToLower(item.Status), query) ||
-				strings.Contains(portText, query) ||
-				strings.Contains(pidText, query) {
-				result = append(result, item)
+	getSelectedPID := func() int32 {
+		if selectedIndex < 0 {
+			return 0
+		}
+		if isPortsMode() {
+			if selectedIndex < len(filteredPorts) {
+				return filteredPorts[selectedIndex].PID
+			}
+		} else {
+			if selectedIndex < len(filteredProcs) {
+				return filteredProcs[selectedIndex].PID
 			}
 		}
+		return 0
+	}
 
-		switch sortSelect.Selected {
-		case "Process":
-			sort.SliceStable(result, func(i, j int) bool {
-				if result[i].ProcessName == result[j].ProcessName {
-					return result[i].LocalPort < result[j].LocalPort
-				}
-				return result[i].ProcessName < result[j].ProcessName
-			})
-		case "PID":
-			sort.SliceStable(result, func(i, j int) bool {
-				if result[i].PID == result[j].PID {
-					return result[i].LocalPort < result[j].LocalPort
-				}
-				return result[i].PID < result[j].PID
-			})
-		default:
-			sort.SliceStable(result, func(i, j int) bool {
-				if result[i].LocalPort == result[j].LocalPort {
-					return result[i].ProcessName < result[j].ProcessName
-				}
-				return result[i].LocalPort < result[j].LocalPort
-			})
+	getSelectedName := func() string {
+		if selectedIndex < 0 {
+			return ""
 		}
-
-		return result
+		if isPortsMode() {
+			if selectedIndex < len(filteredPorts) {
+				return filteredPorts[selectedIndex].ProcessName
+			}
+		} else {
+			if selectedIndex < len(filteredProcs) {
+				return filteredProcs[selectedIndex].ProcessName
+			}
+		}
+		return ""
 	}
 
 	list := widget.NewList(
 		func() int {
-			return len(filteredItems)
+			if isPortsMode() {
+				return len(filteredPorts)
+			}
+			return len(filteredProcs)
 		},
 		func() fyne.CanvasObject {
-			left := widget.NewLabel("tcp :80")
-			right := canvas.NewText("pid=123 nginx", color.White)
+			left := widget.NewLabel("")
+			right := canvas.NewText("", color.White)
 			right.Alignment = fyne.TextAlignTrailing
 			return container.NewBorder(nil, nil, nil, right, left)
 		},
 		func(id widget.ListItemID, obj fyne.CanvasObject) {
-			if id < 0 || id >= len(filteredItems) {
-				return
-			}
-
-			item := filteredItems[id]
-
 			row := obj.(*fyne.Container)
 			left := row.Objects[0].(*widget.Label)
 			right := row.Objects[1].(*canvas.Text)
 
-			left.SetText(fmt.Sprintf("%s %s:%d", item.Proto, item.LocalAddr, item.LocalPort))
-			right.Text = fmt.Sprintf("pid=%d  %s", item.PID, item.ProcessName)
+			if isPortsMode() {
+				if id < 0 || id >= len(filteredPorts) {
+					return
+				}
+				item := filteredPorts[id]
+				left.SetText(fmt.Sprintf("%s %s:%d", item.Proto, item.LocalAddr, item.LocalPort))
+				right.Text = fmt.Sprintf("pid=%d  %s", item.PID, item.ProcessName)
 
-			switch strings.ToLower(item.Proto) {
-			case "tcp":
-				right.Color = color.RGBA{R: 80, G: 160, B: 255, A: 255}
-			case "udp":
-				right.Color = color.RGBA{R: 180, G: 120, B: 255, A: 255}
-			default:
-				right.Color = color.RGBA{R: 180, G: 180, B: 180, A: 255}
+				switch strings.ToLower(item.Proto) {
+				case "tcp":
+					right.Color = color.RGBA{R: 80, G: 160, B: 255, A: 255}
+				case "udp":
+					right.Color = color.RGBA{R: 180, G: 120, B: 255, A: 255}
+				default:
+					right.Color = color.RGBA{R: 180, G: 180, B: 180, A: 255}
+				}
+			} else {
+				if id < 0 || id >= len(filteredProcs) {
+					return
+				}
+				p := filteredProcs[id]
+				cpuStr := fmt.Sprintf("%.1f%%", p.CPUPercent)
+				memStr := system.FormatBytes(p.MemoryBytes)
+				left.SetText(fmt.Sprintf("%s  |  CPU: %s  Mem: %s", p.ProcessName, cpuStr, memStr))
+				right.Text = fmt.Sprintf("pid=%d", p.PID)
+				right.Color = color.RGBA{R: 100, G: 200, B: 100, A: 255}
 			}
-
 			right.Refresh()
 		},
 	)
 
 	refreshList := func() {
-		filteredItems = filterItems(searchEntry.Text)
+		if isPortsMode() {
+			filteredPorts = filterPorts(searchEntry.Text, allPorts, sortSelect.Selected)
+		} else {
+			filteredProcs = filterProcs(searchEntry.Text, allProcs, sortSelect.Selected)
+		}
 		list.Refresh()
 		updateButtons()
+
+		count := 0
+		if isPortsMode() {
+			count = len(filteredPorts)
+		} else {
+			count = len(filteredProcs)
+		}
 
 		statusLabel.SetText(
 			fmt.Sprintf(
 				"Статус: %d записей | обновлено %s",
-				len(filteredItems),
+				count,
 				time.Now().Format("15:04:05"),
 			),
 		)
 	}
 
 	refreshData := func() {
-		items, err := system.ListListeningPorts()
-		if err != nil {
+		if isPortsMode() {
+			items, err := system.ListListeningPorts()
+			if err != nil {
+				fyne.Do(func() {
+					statusLabel.SetText("Статус: ошибка загрузки — " + err.Error())
+					allPorts = nil
+					filteredPorts = nil
+					selectedIndex = -1
+					list.Refresh()
+					updateButtons()
+				})
+				return
+			}
 			fyne.Do(func() {
-				statusLabel.SetText("Статус: ошибка загрузки — " + err.Error())
-				allItems = nil
-				filteredItems = nil
-				selectedIndex = -1
-				list.Refresh()
-				updateButtons()
+				allPorts = items
+				refreshList()
 			})
-			return
+		} else {
+			procs, err := system.ListTopProcesses(200)
+			if err != nil {
+				fyne.Do(func() {
+					statusLabel.SetText("Статус: ошибка загрузки — " + err.Error())
+					allProcs = nil
+					filteredProcs = nil
+					selectedIndex = -1
+					list.Refresh()
+					updateButtons()
+				})
+				return
+			}
+			fyne.Do(func() {
+				allProcs = procs
+				refreshList()
+			})
 		}
-
-		fyne.Do(func() {
-			allItems = items
-			refreshList()
-		})
 	}
 
 	list.OnSelected = func(id widget.ListItemID) {
 		selectedIndex = id
 		updateButtons()
 	}
-
 	list.OnUnselected = func(id widget.ListItemID) {
 		selectedIndex = -1
 		updateButtons()
@@ -203,18 +237,38 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 		refreshList()
 	}
 
+	modeSelect.OnChanged = func(mode string) {
+		switch mode {
+		case "Top Processes":
+			sortSelect.Options = []string{"CPU", "Memory", "PID", "Name"}
+			sortSelect.SetSelected("CPU")
+			subtitle.SetText("Просмотр процессов по нагрузке на CPU")
+		case "Listening Ports":
+			sortSelect.Options = []string{"Port", "Process", "PID"}
+			sortSelect.SetSelected("Port")
+			subtitle.SetText("Просмотр listening ports и процессов")
+		}
+		selectedIndex = -1
+		list.UnselectAll()
+		refreshData()
+	}
+
 	autoRefreshCheck.OnChanged = func(checked bool) {
 		if !checked {
+			if autoRefreshStarted {
+				close(stopAutoRefresh)
+				autoRefreshStarted = false
+			}
 			return
 		}
-
 		if autoRefreshStarted {
 			return
 		}
 		autoRefreshStarted = true
+		stopAutoRefresh = make(chan struct{})
 
 		go func() {
-			ticker := time.NewTicker(time.Duration(appstate.Config.RefreshIntervalSeconds) * time.Second)
+			ticker := time.NewTicker(time.Duration(appstate.GetConfig().RefreshIntervalSeconds) * time.Second)
 			defer ticker.Stop()
 
 			for {
@@ -231,45 +285,58 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 	}
 
 	detailsButton.OnTapped = func() {
-		item, ok := getSelectedItem()
-		if !ok {
-			statusLabel.SetText("Выбери запись из списка")
-			updateButtons()
-			return
+		if isPortsMode() {
+			if selectedIndex < 0 || selectedIndex >= len(filteredPorts) {
+				statusLabel.SetText("Выбери запись из списка")
+				updateButtons()
+				return
+			}
+			item := filteredPorts[selectedIndex]
+			details := system.GetPortProcessDetails(item)
+			dialog.ShowCustom(
+				"Port / Process Details",
+				"Закрыть",
+				container.NewPadded(widget.NewLabel(details)),
+				parent,
+			)
+		} else {
+			if selectedIndex < 0 || selectedIndex >= len(filteredProcs) {
+				statusLabel.SetText("Выбери процесс из списка")
+				updateButtons()
+				return
+			}
+			p := filteredProcs[selectedIndex]
+			details := fmt.Sprintf(
+				"Process: %s\nPID: %d\nCPU: %.1f%%\nMemory: %s (%.1f%%)",
+				p.ProcessName, p.PID, p.CPUPercent,
+				system.FormatBytes(p.MemoryBytes), p.MemoryPercent,
+			)
+			dialog.ShowCustom(
+				"Process Details",
+				"Закрыть",
+				container.NewPadded(widget.NewLabel(details)),
+				parent,
+			)
 		}
-
-		details := system.GetPortProcessDetails(*item)
-
-		dialog.ShowCustom(
-			"Port / Process Details",
-			"Закрыть",
-			container.NewPadded(widget.NewLabel(details)),
-			parent,
-		)
 	}
-	killButton.OnTapped = func() {
-		item, ok := getSelectedItem()
-		if !ok {
-			statusLabel.SetText("Выбери запись из списка")
-			return
-		}
 
-		if item.PID <= 0 {
+	killButton.OnTapped = func() {
+		pid := getSelectedPID()
+		name := getSelectedName()
+		if pid <= 0 {
 			statusLabel.SetText("Невозможно завершить процесс")
 			return
 		}
 
 		dialog.ShowConfirm(
 			"Confirm kill",
-			fmt.Sprintf("Kill process %s (PID %d)?", item.ProcessName, item.PID),
+			fmt.Sprintf("Kill process %s (PID %d)?", name, pid),
 			func(confirm bool) {
 				if !confirm {
 					return
 				}
-
 				go func() {
-					err := system.KillProcess(item.PID)
-
+					err := system.KillProcess(pid)
 					fyne.Do(func() {
 						if err != nil {
 							if system.IsPermissionError(err) {
@@ -279,7 +346,6 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 							}
 							return
 						}
-
 						statusLabel.SetText("Процесс завершён")
 						refreshData()
 					})
@@ -306,6 +372,7 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 				title,
 				subtitle,
 				widget.NewSeparator(),
+				modeSelect,
 				searchEntry,
 				sortSelect,
 				toolbar,
@@ -319,7 +386,101 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 		container.NewPadded(list),
 	)
 
-	go refreshData()
+	modeSelect.SetSelected("Top Processes")
+	RegisterRefresh("Processes", refreshData)
 
 	return content
+}
+
+func filterPorts(query string, items []system.PortProcessInfo, sortBy string) []system.PortProcessInfo {
+	query = strings.ToLower(strings.TrimSpace(query))
+
+	result := make([]system.PortProcessInfo, 0)
+
+	for _, item := range items {
+		portText := strconv.Itoa(int(item.LocalPort))
+		pidText := strconv.Itoa(int(item.PID))
+
+		if query == "" ||
+			strings.Contains(strings.ToLower(item.ProcessName), query) ||
+			strings.Contains(strings.ToLower(item.LocalAddr), query) ||
+			strings.Contains(strings.ToLower(item.Proto), query) ||
+			strings.Contains(strings.ToLower(item.Status), query) ||
+			strings.Contains(portText, query) ||
+			strings.Contains(pidText, query) {
+			result = append(result, item)
+		}
+	}
+
+	switch sortBy {
+	case "Process":
+		sort.SliceStable(result, func(i, j int) bool {
+			if result[i].ProcessName == result[j].ProcessName {
+				return result[i].LocalPort < result[j].LocalPort
+			}
+			return result[i].ProcessName < result[j].ProcessName
+		})
+	case "PID":
+		sort.SliceStable(result, func(i, j int) bool {
+			if result[i].PID == result[j].PID {
+				return result[i].LocalPort < result[j].LocalPort
+			}
+			return result[i].PID < result[j].PID
+		})
+	default:
+		sort.SliceStable(result, func(i, j int) bool {
+			if result[i].LocalPort == result[j].LocalPort {
+				return result[i].ProcessName < result[j].ProcessName
+			}
+			return result[i].LocalPort < result[j].LocalPort
+		})
+	}
+
+	return result
+}
+
+func filterProcs(query string, items []system.ProcessUsageInfo, sortBy string) []system.ProcessUsageInfo {
+	query = strings.ToLower(strings.TrimSpace(query))
+
+	result := make([]system.ProcessUsageInfo, 0)
+
+	for _, p := range items {
+		pidText := strconv.Itoa(int(p.PID))
+
+		if query == "" ||
+			strings.Contains(strings.ToLower(p.ProcessName), query) ||
+			strings.Contains(pidText, query) {
+			result = append(result, p)
+		}
+	}
+
+	switch sortBy {
+	case "Memory":
+		sort.SliceStable(result, func(i, j int) bool {
+			if result[i].MemoryBytes == result[j].MemoryBytes {
+				return result[i].ProcessName < result[j].ProcessName
+			}
+			return result[i].MemoryBytes > result[j].MemoryBytes
+		})
+	case "PID":
+		sort.SliceStable(result, func(i, j int) bool {
+			if result[i].PID == result[j].PID {
+				return result[i].ProcessName < result[j].ProcessName
+			}
+			return result[i].PID < result[j].PID
+		})
+	case "Name":
+		sort.SliceStable(result, func(i, j int) bool {
+			return result[i].ProcessName < result[j].ProcessName
+		})
+	default:
+		sort.SliceStable(result, func(i, j int) bool {
+			if result[i].CPUPercent == result[j].CPUPercent {
+				return result[i].ProcessName < result[j].ProcessName
+			}
+			return result[i].CPUPercent > result[j].CPUPercent
+		})
+	}
+
+	return result
 }

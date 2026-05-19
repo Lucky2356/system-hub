@@ -10,6 +10,9 @@ import (
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
@@ -48,11 +51,25 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	topProcessesLabel := widget.NewLabel("Loading top processes...")
 	topProcessesLabel.Wrapping = fyne.TextWrapWord
 
+	recvLabel := widget.NewLabel("RX: ...")
+	sentLabel := widget.NewLabel("TX: ...")
+
+	perCPUBars := container.NewVBox(widget.NewLabel("Loading per-CPU info..."))
+
+	tempLabel := widget.NewLabel("Loading temperatures...")
+	tempLabel.Wrapping = fyne.TextWrapWord
+	fanLabel := widget.NewLabel("")
+	fanLabel.Wrapping = fyne.TextWrapWord
+	voltageLabel := widget.NewLabel("")
+	voltageLabel.Wrapping = fyne.TextWrapWord
+
 
 	problemsLabel.Wrapping = fyne.TextWrapWord
 	topProcessesLabel.Wrapping = fyne.TextWrapWord
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
+
+	var lastProblems []string
 	
 	makeStatusText := func(status string) *canvas.Text {
 		text := canvas.NewText(status, color.NRGBA{R: 160, G: 160, B: 160, A: 255})
@@ -80,7 +97,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	}
 
 	buildFavoriteServiceRows := func() []fyne.CanvasObject {
-		if len(appstate.Config.FavoriteServices) == 0 {
+		if len(appstate.GetConfig().FavoriteServices) == 0 {
 			return []fyne.CanvasObject{widget.NewLabel("No favorite services")}
 		}
 
@@ -97,7 +114,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		runServiceAction := func(action, serviceName string) {
 			dialog.ShowConfirm(
 				"Confirm "+action,
-				fmt.Sprintf("%s service %s?", strings.Title(action), serviceName),
+				fmt.Sprintf("%s service %s?", cases.Title(language.English).String(action), serviceName),
 				func(ok bool) {
 					if !ok {
 						return
@@ -124,9 +141,9 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 			)
 		}
 
-		rows := make([]fyne.CanvasObject, 0, len(appstate.Config.FavoriteServices))
+		rows := make([]fyne.CanvasObject, 0, len(appstate.GetConfig().FavoriteServices))
 
-		for _, name := range appstate.Config.FavoriteServices {
+		for _, name := range appstate.GetConfig().FavoriteServices {
 			svc, ok := serviceMap[name]
 
 			statusText := "unavailable"
@@ -150,9 +167,9 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 						"Service Logs: "+serviceName,
 						"Logs for service "+serviceName,
 						func() (string, error) {
-							return system.GetServiceLogs(serviceName, appstate.Config.DefaultLogLines)
+							return system.GetServiceLogs(serviceName, appstate.GetConfig().DefaultLogLines)
 						},
-						appstate.Config,
+						appstate.GetConfig(),
 					)
 				}
 			}(name))
@@ -215,7 +232,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	}
 
 	buildFavoriteContainerRows := func() []fyne.CanvasObject {
-		if len(appstate.Config.FavoriteContainers) == 0 {
+		if len(appstate.GetConfig().FavoriteContainers) == 0 {
 			return []fyne.CanvasObject{widget.NewLabel("No favorite containers")}
 		}
 
@@ -232,7 +249,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		runContainerAction := func(action, containerName string) {
 			dialog.ShowConfirm(
 				"Confirm "+action,
-				fmt.Sprintf("%s container %s?", strings.Title(action), containerName),
+				fmt.Sprintf("%s container %s?", cases.Title(language.English).String(action), containerName),
 				func(ok bool) {
 					if !ok {
 						return
@@ -259,9 +276,9 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 			)
 		}
 
-		rows := make([]fyne.CanvasObject, 0, len(appstate.Config.FavoriteContainers))
+		rows := make([]fyne.CanvasObject, 0, len(appstate.GetConfig().FavoriteContainers))
 
-		for _, name := range appstate.Config.FavoriteContainers {
+		for _, name := range appstate.GetConfig().FavoriteContainers {
 			c, ok := containerMap[name]
 
 			statusText := "unavailable"
@@ -285,9 +302,9 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 						"Docker Logs: "+containerName,
 						"Logs for container "+containerName,
 						func() (string, error) {
-							return system.GetDockerContainerLogs(containerName, appstate.Config.DefaultLogLines)
+							return system.GetDockerContainerLogs(containerName, appstate.GetConfig().DefaultLogLines)
 						},
-						appstate.Config,
+						appstate.GetConfig(),
 					)
 				}
 			}(name))
@@ -363,6 +380,53 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		cpuValueLabel.SetText(fmt.Sprintf("CPU: %.1f%%", stats.CPUPercent))
 		cpuBar.SetValue(stats.CPUPercent / 100)
 
+		perCPUBars.Objects = nil
+		for _, core := range stats.PerCPU {
+			bar := widget.NewProgressBar()
+			bar.SetValue(core.Percent / 100)
+			label := widget.NewLabel(fmt.Sprintf("Core %d: %.1f%%", core.Core, core.Percent))
+			perCPUBars.Add(container.NewVBox(label, bar))
+		}
+		if len(stats.PerCPU) == 0 {
+			perCPUBars.Add(widget.NewLabel("No per-CPU data available"))
+		}
+		perCPUBars.Refresh()
+
+		recvLabel.SetText(fmt.Sprintf("RX: %s", system.FormatBytes(stats.NetRecv)))
+		sentLabel.SetText(fmt.Sprintf("TX: %s", system.FormatBytes(stats.NetSent)))
+
+		if len(stats.Temperatures) == 0 {
+			tempLabel.SetText("No temperature data")
+		} else {
+			parts := make([]string, 0, len(stats.Temperatures))
+			for _, s := range stats.Temperatures {
+				parts = append(parts, fmt.Sprintf("• %s: %.0f%s", s.Name, s.Temp, s.Unit))
+			}
+			tempLabel.SetText(strings.Join(parts, "\n"))
+		}
+
+		fans := system.GetFanSpeeds()
+		if len(fans) > 0 {
+			parts := make([]string, 0, len(fans))
+			for _, f := range fans {
+				parts = append(parts, fmt.Sprintf("• %s: %.0f %s", f.Name, f.Speed, f.Unit))
+			}
+			fanLabel.SetText(strings.Join(parts, "\n"))
+		} else {
+			fanLabel.SetText("")
+		}
+
+		volts := system.GetVoltages()
+		if len(volts) > 0 {
+			parts := make([]string, 0, len(volts))
+			for _, v := range volts {
+				parts = append(parts, fmt.Sprintf("• %s: %.3f %s", v.Name, v.Value, v.Unit))
+			}
+			voltageLabel.SetText(strings.Join(parts, "\n"))
+		} else {
+			voltageLabel.SetText("")
+		}
+
 		ramValueLabel.SetText(fmt.Sprintf("RAM: %.1f%%", stats.RAMPercent))
 		ramDetailsLabel.SetText(fmt.Sprintf(
 			"%s / %s",
@@ -420,10 +484,27 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 
 		problems := system.BuildProblems(
 			stats,
-			appstate.Config.FavoriteServices,
-			appstate.Config.FavoriteContainers,
+			appstate.GetConfig().FavoriteServices,
+			appstate.GetConfig().FavoriteContainers,
 		)
 		problemsLabel.SetText(joinLines(problems))
+
+		for _, p := range problems {
+			found := false
+			for _, old := range lastProblems {
+				if old == p {
+					found = true
+					break
+				}
+			}
+			if !found {
+				fyne.CurrentApp().SendNotification(&fyne.Notification{
+					Title:   "System Hub Alert",
+					Content: p,
+				})
+			}
+		}
+		lastProblems = problems
 		topProcesses, err := system.ListTopProcesses(5)
 		if err != nil {
 			topProcessesLabel.SetText("Unable to load top processes")
@@ -542,15 +623,39 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		),
 	)
 
+	networkCard := NewStatCard(
+		"Network",
+		"Передано / получено данных",
+		container.NewVBox(
+			recvLabel,
+			sentLabel,
+		),
+	)
+
+	perCPUCard := NewStatCard(
+		"Per-Core CPU",
+		"Загрузка каждого ядра процессора",
+		container.NewVBox(
+			perCPUBars,
+		),
+	)
+
+	tempCard := NewStatCard(
+		"Temperature",
+		"Температура CPU/GPU",
+		container.NewVBox(tempLabel, fanLabel, voltageLabel),
+	)
+
 	topRow := container.NewGridWithColumns(3, cpuCard, ramCard, diskCard)
-	middleRow := container.NewGridWithColumns(3, uptimeCard, servicesCard, dockerCard)
-	bottomRow := container.NewGridWithColumns(3,
+	middleRow := container.NewGridWithColumns(4, uptimeCard, servicesCard, dockerCard, networkCard)
+	bottomRow := container.NewGridWithColumns(4,
 		favoriteServicesCard,
 		favoriteContainersCard,
 		problemsCard,
+		tempCard,
 	)
 
-	extraRow := container.NewGridWithColumns(1, topProcessesCard)
+	extraRow := container.NewGridWithColumns(2, topProcessesCard, perCPUCard)
 
 	content := container.NewVBox(
 		title,
@@ -567,16 +672,24 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 
 	go refreshStats()
 
-	if appstate.Config.DashboardAutoRefresh {
+	stopDashboardRefresh := make(chan struct{})
+	if appstate.GetConfig().DashboardAutoRefresh {
 		go func() {
-			ticker := time.NewTicker(time.Duration(appstate.Config.RefreshIntervalSeconds) * time.Second)
+			ticker := time.NewTicker(time.Duration(appstate.GetConfig().RefreshIntervalSeconds) * time.Second)
 			defer ticker.Stop()
 
-			for range ticker.C {
-				refreshStats()
+			for {
+				select {
+				case <-ticker.C:
+					refreshStats()
+				case <-stopDashboardRefresh:
+					return
+				}
 			}
 		}()
 	}
+
+	RegisterRefresh("Dashboard", refreshStats)
 
 	return container.NewPadded(content)
 }

@@ -2,7 +2,6 @@ package system
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
@@ -115,9 +114,7 @@ func RunSafeCommand(key, arg string) (string, error) {
 
 	bin := detectBinaryForCommand(key)
 
-	cmd := exec.Command(bin, args...)
-	output, err := cmd.CombinedOutput()
-
+	output, err := runCmd(bin, args...)
 	if err != nil {
 		if len(output) == 0 {
 			return "", err

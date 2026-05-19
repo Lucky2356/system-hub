@@ -24,6 +24,3 @@ func ShowErrorMsg(parent fyne.Window, msg string) {
 	dialog.ShowError(fmt.Errorf("%s", msg), parent)
 }
 
-func ShowInfo(parent fyne.Window, title, message string) {
-	dialog.ShowInformation(title, message, parent)
-}

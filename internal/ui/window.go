@@ -5,11 +5,13 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/driver/desktop"
 )
 
 func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 	w := a.NewWindow("System Hub")
 	w.Resize(fyne.NewSize(900, 550))
+	w.SetMinimumSize(fyne.NewSize(700, 400))
 
 	tabs := container.NewAppTabs(
 		container.NewTabItem("Dashboard", buildDashboardTab(w, cfg)),
@@ -26,6 +28,21 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 	)
 
 	tabs.SetTabLocation(container.TabLocationTop)
+
+	ctrlR := &desktop.CustomShortcut{KeyName: fyne.KeyR, Modifier: fyne.KeyModifierControl}
+	w.Canvas().AddShortcut(ctrlR, func(shortcut fyne.Shortcut) {
+		selected := tabs.SelectedIndex()
+		tabNames := []string{
+			"Dashboard", "Services", "Docker", "Processes",
+			"Files", "Commands", "System Info", "Logs",
+			"Activity", "Report", "Settings",
+		}
+		if selected >= 0 && selected < len(tabNames) {
+			if fn := GetRefresh(tabNames[selected]); fn != nil {
+				fn()
+			}
+		}
+	})
 
 	w.SetContent(tabs)
 	return w

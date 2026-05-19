@@ -3,9 +3,7 @@ package system
 import (
 	"errors"
 	"fmt"
-	"os/exec"
 	"runtime"
-	"strings"
 )
 
 func GetSystemLogs(lines int) (string, error) {
@@ -17,19 +15,9 @@ func GetSystemLogs(lines int) (string, error) {
 		lines = 100
 	}
 
-	cmd := exec.Command(
-		"journalctl",
-		"-n", fmt.Sprintf("%d", lines),
-		"--no-pager",
-	)
-
-	output, err := cmd.CombinedOutput()
+	output, err := runCmd("journalctl", "-n", fmt.Sprintf("%d", lines), "--no-pager")
 	if err != nil {
-		text := strings.TrimSpace(string(output))
-		if text == "" {
-			return "", fmt.Errorf("journalctl system logs: %w", err)
-		}
-		return "", fmt.Errorf("journalctl system logs: %s", text)
+		return "", fmt.Errorf("journalctl system logs: %w", err)
 	}
 
 	return string(output), nil

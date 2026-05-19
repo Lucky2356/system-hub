@@ -102,6 +102,14 @@ func GetPortProcessDetails(item PortProcessInfo) string {
 }
 
 func KillProcess(pid int32) error {
+	if pid <= 0 {
+		return fmt.Errorf("invalid PID: %d", pid)
+	}
+
+	if pid == 1 {
+		return fmt.Errorf("cannot kill PID 1 (init system)")
+	}
+
 	p, err := process.NewProcess(pid)
 	if err != nil {
 		return err

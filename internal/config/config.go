@@ -26,6 +26,8 @@ type Config struct {
 
 	FavoriteServices   []string `json:"favorite_services"`
 	FavoriteContainers []string `json:"favorite_containers"`
+
+	Theme string `json:"theme"`
 }
 
 func DefaultConfig() Config {
@@ -40,6 +42,7 @@ func DefaultConfig() Config {
 		LogViewerAutoRefresh: false,
 		FavoriteServices:   []string{},
 		FavoriteContainers: []string{},
+		Theme:              "dark",
 	}
 }
 
