@@ -1,0 +1,52 @@
+# nfpm configuration — generates .deb and .rpm from a single source.
+# https://nfpm.goreleaser.com
+#
+# Usage (requires a prebuilt Linux binary at ./system-hub):
+#   VERSION=0.1.0 nfpm pkg --packager deb --target dist/
+#   VERSION=0.1.0 nfpm pkg --packager rpm --target dist/
+#
+# The ${VERSION} / ${GOARCH} placeholders are expanded from the environment.
+name: system-hub
+arch: ${GOARCH}
+platform: linux
+version: ${VERSION}
+version_schema: none
+section: admin
+priority: optional
+maintainer: Lucky2356 <noreply@github.com>
+description: |
+  System administration GUI for Linux.
+  Dashboard (CPU/RAM/disk/network/temperature), systemd service management,
+  Docker container and image management, process/port viewer, log viewer and
+  diagnostic reports, built with Go and the Fyne toolkit.
+vendor: Lucky2356
+homepage: https://github.com/Lucky2356/system-hub
+license: MIT
+
+depends:
+  - systemd
+recommends:
+  - docker.io
+  - lm-sensors
+
+contents:
+  - src: ./system-hub
+    dst: /usr/bin/system-hub
+    file_info:
+      mode: 0755
+  - src: ./packaging/system-hub.desktop
+    dst: /usr/share/applications/system-hub.desktop
+    file_info:
+      mode: 0644
+  - src: ./cmd/system-hub/Icon.png
+    dst: /usr/share/icons/hicolor/256x256/apps/system-hub.png
+    file_info:
+      mode: 0644
+
+overrides:
+  rpm:
+    depends:
+      - systemd
+    recommends:
+      - docker
+      - lm_sensors

@@ -1,0 +1,138 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Linux: build a CGO binary, then produce .deb and .rpm via nfpm.
+  # ---------------------------------------------------------------------------
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REF="${{ github.event.inputs.version }}"
+          else
+            REF="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=${REF}" >> "$GITHUB_OUTPUT"
+          echo "version=${REF#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Fyne build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc pkg-config \
+            libgl1-mesa-dev libxrandr-dev libxcursor-dev libxi-dev \
+            libxinerama-dev libxxf86vm-dev libxkbcommon-dev
+
+      - name: Build binary
+        env:
+          CGO_ENABLED: '1'
+        run: |
+          go build -trimpath \
+            -ldflags "-s -w -X github.com/Lucky2356/system-hub/internal/version.Version=${{ steps.ver.outputs.tag }}" \
+            -o system-hub ./cmd/system-hub
+
+      - name: Install nfpm
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Build packages
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          GOARCH: amd64
+        run: |
+          mkdir -p dist
+          nfpm pkg --packager deb --target dist/
+          nfpm pkg --packager rpm --target dist/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            system-hub
+            dist/*.deb
+            dist/*.rpm
+
+  # ---------------------------------------------------------------------------
+  # Windows: build a CGO binary and package it as a Windows .exe via fyne.
+  # ---------------------------------------------------------------------------
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REF="${{ github.event.inputs.version }}"
+          else
+            REF="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=${REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Build system-hub.exe
+        shell: bash
+        env:
+          CGO_ENABLED: '1'
+        run: |
+          go build -trimpath \
+            -ldflags "-s -w -H=windowsgui -X github.com/Lucky2356/system-hub/internal/version.Version=${{ steps.ver.outputs.tag }}" \
+            -o system-hub.exe ./cmd/system-hub
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: system-hub.exe
+
+  # ---------------------------------------------------------------------------
+  # Attach everything to the GitHub Release (tag pushes only).
+  # ---------------------------------------------------------------------------
+  release:
+    needs: [linux, windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/linux-packages/dist/*.deb
+            artifacts/linux-packages/dist/*.rpm
+            artifacts/windows-exe/system-hub.exe

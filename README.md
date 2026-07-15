@@ -1,5 +1,10 @@
 # System Hub
 
+[![CI](https://github.com/Lucky2356/system-hub/actions/workflows/ci.yml/badge.svg)](https://github.com/Lucky2356/system-hub/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Lucky2356/system-hub?include_prereleases)](https://github.com/Lucky2356/system-hub/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)](go.mod)
+
 System Hub is a cross-platform GUI application for monitoring and managing Linux systems. Built with Go and the [Fyne](https://fyne.io/) toolkit, it provides a unified interface for systemd services, Docker containers, system metrics, logs, processes, and diagnostics.
 
 ## Features
@@ -8,7 +13,7 @@ System Hub is a cross-platform GUI application for monitoring and managing Linux
 - **Services** — Browse systemd services, search/sort, start/stop/restart/enable/disable, view logs, open unit files, mark favorites
 - **Docker** — Browse containers (running/exited/paused), start/stop/restart, inspect, logs, manage images (list/pull/remove), mark favorites
 - **Processes** — Top processes by CPU/memory with search/sort, listening TCP/UDP ports viewer, kill processes
-- **Files** — Read-only file browser for system configs and logs, view/edit text files, preset paths for common directories
+- **Files** — File browser and text editor for system configs and logs; view/edit/create/rename/delete, preset paths for common directories (destructive actions require confirmation and run with the current user's privileges)
 - **Commands** — Run predefined safe diagnostic commands (systemctl, docker, journalctl, ss)
 - **System Info** — Hostname, OS, kernel, uptime, user info with copy-to-clipboard
 - **Logs** — Unified log viewer: system logs (journalctl), service logs, container logs; search, level filter, copy, save, auto-refresh, Follow mode
@@ -31,11 +36,30 @@ System Hub is a cross-platform GUI application for monitoring and managing Linux
 go run ./cmd/system-hub
 ```
 
-Build a standalone binary:
+Build a standalone binary (with version stamped in):
 
 ```bash
-go build -o system-hub ./cmd/system-hub
+make build VERSION=v0.1.0        # or: go build -o system-hub ./cmd/system-hub
+./system-hub --version
 ```
+
+## Packaging
+
+Build artifacts are produced by CI (`.github/workflows/release.yml`) on a `vX.Y.Z`
+tag: a Windows `.exe`, plus `.deb` and `.rpm` generated from a single
+[`nfpm.yaml`](nfpm.yaml) and attached to the GitHub Release.
+
+Local builds:
+
+```bash
+# Windows .exe (run on Windows, needs a C compiler for CGO/Fyne)
+make windows-amd64 VERSION=v0.1.0
+
+# .deb / .rpm (run on Linux; needs nfpm and Fyne dev headers)
+make packages VERSION=0.1.0
+```
+
+Distro RPM specs live in [`packaging/`](packaging/) (Fedora and ALT Linux).
 
 ## Configuration
 
@@ -87,3 +111,12 @@ internal/
 
 - [Fyne](https://fyne.io/) v2.7.3 — GUI toolkit
 - [gopsutil](https://github.com/shirou/gopsutil) v4 — System metrics
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Notable changes are tracked in [CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+[MIT](LICENSE)

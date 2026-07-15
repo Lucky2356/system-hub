@@ -12,9 +12,18 @@ Source0:        %{name}-%{version}.tar.gz
 BuildRequires:  golang >= 1.26
 BuildRequires:  gcc
 BuildRequires:  desktop-file-utils
+BuildRequires:  pkgconfig
+# Fyne (GLFW/OpenGL) build-time headers (ALT naming)
+BuildRequires:  libGL-devel
+BuildRequires:  libX11-devel
+BuildRequires:  libXrandr-devel
+BuildRequires:  libXcursor-devel
+BuildRequires:  libXi-devel
+BuildRequires:  libXinerama-devel
+BuildRequires:  libXxf86vm-devel
+BuildRequires:  libxkbcommon-devel
 
 Requires:       systemd
-Requires:       docker-io
 
 %description
 System Hub is a desktop application (Fyne GUI) for monitoring and managing
@@ -31,7 +40,10 @@ a Linux system. Features:
 %autosetup
 
 %build
-go build -trimpath -ldflags="-s -w" -o system-hub ./cmd/system-hub
+export CGO_ENABLED=1
+go build -trimpath \
+    -ldflags="-s -w -X github.com/Lucky2356/system-hub/internal/version.Version=%{version}" \
+    -o system-hub ./cmd/system-hub
 
 %install
 install -Dpm0755 system-hub %{buildroot}%{_bindir}/system-hub

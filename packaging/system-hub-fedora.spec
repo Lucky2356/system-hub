@@ -11,9 +11,20 @@ Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  golang >= 1.26
 BuildRequires:  gcc
+BuildRequires:  pkgconfig
+# Fyne (GLFW/OpenGL) build-time headers
+BuildRequires:  mesa-libGL-devel
+BuildRequires:  libX11-devel
+BuildRequires:  libXrandr-devel
+BuildRequires:  libXcursor-devel
+BuildRequires:  libXi-devel
+BuildRequires:  libXinerama-devel
+BuildRequires:  libXxf86vm-devel
+BuildRequires:  libxkbcommon-devel
 
 Requires:       systemd
-Requires:       docker
+Recommends:     docker
+Recommends:     lm_sensors
 
 %description
 System Hub is a desktop application for monitoring system state,
@@ -23,7 +34,12 @@ managing systemd services, Docker containers and logs.
 %autosetup
 
 %build
-go build -trimpath -ldflags="-s -w" -o system-hub ./cmd/system-hub
+# Offline build: vendor directory is expected in the source tarball
+# (run `go mod vendor` before `make dist`). Falls back to module mode if absent.
+export CGO_ENABLED=1
+go build -trimpath \
+    -ldflags="-s -w -X github.com/Lucky2356/system-hub/internal/version.Version=%{version}" \
+    -o system-hub ./cmd/system-hub
 
 %install
 install -Dpm0755 system-hub %{buildroot}%{_bindir}/system-hub
