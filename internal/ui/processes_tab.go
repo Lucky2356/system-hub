@@ -19,24 +19,24 @@ import (
 )
 
 func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabel("Processes")
+	title := widget.NewLabel("Процессы")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("Просмотр процессов и listening ports")
+	subtitle := widget.NewLabel("Просмотр процессов и прослушиваемых портов")
 
-	modeSelect := widget.NewSelect([]string{"Top Processes", "Listening Ports"}, nil)
-	modeSelect.SetSelected("Top Processes")
+	modeSelect := widget.NewSelect([]string{"Топ процессов", "Прослушиваемые порты"}, nil)
+	modeSelect.SetSelected("Топ процессов")
 
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск по имени, PID, порту...")
 
-	sortSelect := widget.NewSelect([]string{"CPU", "Memory", "PID", "Name"}, nil)
+	sortSelect := widget.NewSelect([]string{"CPU", "Память", "PID", "Имя"}, nil)
 	sortSelect.SetSelected("CPU")
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
 
 	autoRefreshCheck := widget.NewCheck(
-		fmt.Sprintf("Auto refresh (%d сек)", appstate.GetConfig().RefreshIntervalSeconds),
+		fmt.Sprintf("Автообновление (%d сек)", appstate.GetConfig().RefreshIntervalSeconds),
 		nil,
 	)
 	autoRefreshCheck.SetChecked(false)
@@ -49,13 +49,13 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 	autoRefreshStarted := false
 	stopAutoRefresh := make(chan struct{})
 
-	detailsButton := widget.NewButton("Details", nil)
+	detailsButton := widget.NewButton("Подробнее", nil)
 	detailsButton.Disable()
-	killButton := widget.NewButton("Kill", nil)
+	killButton := widget.NewButton("Завершить", nil)
 	killButton.Disable()
 
 	isPortsMode := func() bool {
-		return modeSelect.Selected == "Listening Ports"
+		return modeSelect.Selected == "Прослушиваемые порты"
 	}
 
 	updateButtons := func() {
@@ -239,14 +239,14 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 
 	modeSelect.OnChanged = func(mode string) {
 		switch mode {
-		case "Top Processes":
-			sortSelect.Options = []string{"CPU", "Memory", "PID", "Name"}
+		case "Топ процессов":
+			sortSelect.Options = []string{"CPU", "Память", "PID", "Имя"}
 			sortSelect.SetSelected("CPU")
 			subtitle.SetText("Просмотр процессов по нагрузке на CPU")
-		case "Listening Ports":
-			sortSelect.Options = []string{"Port", "Process", "PID"}
-			sortSelect.SetSelected("Port")
-			subtitle.SetText("Просмотр listening ports и процессов")
+		case "Прослушиваемые порты":
+			sortSelect.Options = []string{"Порт", "Процесс", "PID"}
+			sortSelect.SetSelected("Порт")
+			subtitle.SetText("Просмотр прослушиваемых портов и процессов")
 		}
 		selectedIndex = -1
 		list.UnselectAll()
@@ -294,7 +294,7 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 			item := filteredPorts[selectedIndex]
 			details := system.GetPortProcessDetails(item)
 			dialog.ShowCustom(
-				"Port / Process Details",
+				"Сведения о порте и процессе",
 				"Закрыть",
 				container.NewPadded(widget.NewLabel(details)),
 				parent,
@@ -307,12 +307,12 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 			}
 			p := filteredProcs[selectedIndex]
 			details := fmt.Sprintf(
-				"Process: %s\nPID: %d\nCPU: %.1f%%\nMemory: %s (%.1f%%)",
+				"Процесс: %s\nPID: %d\nCPU: %.1f%%\nПамять: %s (%.1f%%)",
 				p.ProcessName, p.PID, p.CPUPercent,
 				system.FormatBytes(p.MemoryBytes), p.MemoryPercent,
 			)
 			dialog.ShowCustom(
-				"Process Details",
+				"Сведения о процессе",
 				"Закрыть",
 				container.NewPadded(widget.NewLabel(details)),
 				parent,
@@ -329,8 +329,8 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 		}
 
 		dialog.ShowConfirm(
-			"Confirm kill",
-			fmt.Sprintf("Kill process %s (PID %d)?", name, pid),
+			"Подтверждение",
+			fmt.Sprintf("Завершить процесс %s (PID %d)?", name, pid),
 			func(confirm bool) {
 				if !confirm {
 					return
@@ -386,7 +386,7 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 		container.NewPadded(list),
 	)
 
-	modeSelect.SetSelected("Top Processes")
+	modeSelect.SetSelected("Топ процессов")
 	RegisterRefresh("Processes", refreshData)
 
 	return content
@@ -413,7 +413,7 @@ func filterPorts(query string, items []system.PortProcessInfo, sortBy string) []
 	}
 
 	switch sortBy {
-	case "Process":
+	case "Процесс":
 		sort.SliceStable(result, func(i, j int) bool {
 			if result[i].ProcessName == result[j].ProcessName {
 				return result[i].LocalPort < result[j].LocalPort
@@ -455,7 +455,7 @@ func filterProcs(query string, items []system.ProcessUsageInfo, sortBy string) [
 	}
 
 	switch sortBy {
-	case "Memory":
+	case "Память":
 		sort.SliceStable(result, func(i, j int) bool {
 			if result[i].MemoryBytes == result[j].MemoryBytes {
 				return result[i].ProcessName < result[j].ProcessName
@@ -469,7 +469,7 @@ func filterProcs(query string, items []system.ProcessUsageInfo, sortBy string) [
 			}
 			return result[i].PID < result[j].PID
 		})
-	case "Name":
+	case "Имя":
 		sort.SliceStable(result, func(i, j int) bool {
 			return result[i].ProcessName < result[j].ProcessName
 		})

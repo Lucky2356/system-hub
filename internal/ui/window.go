@@ -2,7 +2,6 @@ package ui
 
 import (
 	"log"
-	"path/filepath"
 
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/appstate"
@@ -19,24 +18,25 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 	w.Resize(fyne.NewSize(900, 550))
 
 	tabs := container.NewAppTabs(
-		container.NewTabItem("Dashboard", buildDashboardTab(w, cfg)),
-		container.NewTabItem("Services", buildServicesTab(w, cfg)),
+		container.NewTabItem("Дашборд", buildDashboardTab(w, cfg)),
+		container.NewTabItem("Сервисы", buildServicesTab(w, cfg)),
 		container.NewTabItem("Docker", buildDockerTab(w, cfg)),
-		container.NewTabItem("Processes", buildProcessesTab(w)),
-		container.NewTabItem("Files", buildFilesTab(w)),
-		container.NewTabItem("Commands", buildCommandsTab(w)),
-		container.NewTabItem("System Info", NewSystemInfoTab(w)),
-		container.NewTabItem("Logs", buildLogsTab(cfg)),
-		container.NewTabItem("Activity", buildActivityTab()),
-		container.NewTabItem("Report", buildReportTab(w)),
-		container.NewTabItem("Settings", buildSettingsTab(w, cfg)),
+		container.NewTabItem("Процессы", buildProcessesTab(w)),
+		container.NewTabItem("Файлы", buildFilesTab(w)),
+		container.NewTabItem("Команды", buildCommandsTab(w)),
+		container.NewTabItem("О системе", NewSystemInfoTab(w)),
+		container.NewTabItem("Логи", buildLogsTab(cfg)),
+		container.NewTabItem("История", buildActivityTab()),
+		container.NewTabItem("Отчёт", buildReportTab(w)),
+		container.NewTabItem("Настройки", buildSettingsTab(w, cfg)),
 	)
 
 	tabs.SetTabLocation(container.TabLocationTop)
 
 	isDark := cfg.Theme != "light"
 
-	themeBtn := widget.NewButton("", func() {
+	var themeBtn *widget.Button
+	themeBtn = widget.NewButton("", func() {
 		isDark = !isDark
 		if isDark {
 			a.Settings().SetTheme(theme.DarkTheme())
@@ -53,13 +53,8 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 		}
 		appstate.SetConfig(newCfg)
 
-		cfgPath, err := config.ConfigFilePath()
-		if err == nil {
-			dir := filepath.Dir(cfgPath)
-			savePath := filepath.Join(dir, "config.json")
-			if err := config.Save(newCfg); err != nil {
-				log.Printf("save theme config: %v", err)
-			}
+		if err := config.Save(newCfg); err != nil {
+			log.Printf("save theme config: %v", err)
 		}
 	})
 	if isDark {
@@ -90,5 +85,11 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 
 	content := container.NewBorder(topBar, nil, nil, nil, tabs)
 	w.SetContent(content)
+
+	w.SetCloseIntercept(func() {
+		RunClosers()
+		w.Close()
+	})
+
 	return w
 }

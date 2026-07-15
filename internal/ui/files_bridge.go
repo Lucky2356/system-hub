@@ -22,7 +22,7 @@ func OpenFileInFiles(path string) error {
 	filesOpenMu.RUnlock()
 
 	if fn == nil {
-		return fmt.Errorf("files tab is not ready")
+		return fmt.Errorf("вкладка «Файлы» ещё не готова")
 	}
 
 	return fn(path)

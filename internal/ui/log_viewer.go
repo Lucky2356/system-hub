@@ -29,18 +29,18 @@ func showLogsWindow(
 
 	infoLabel := widget.NewLabel("Логи ещё не загружены")
 	autoRefreshCheck := widget.NewCheck(
-		fmt.Sprintf("Auto refresh (%d сек)", cfg.RefreshIntervalSeconds),
+		fmt.Sprintf("Автообновление (%d сек)", cfg.RefreshIntervalSeconds),
 		nil,
 	)
 	autoRefreshCheck.SetChecked(cfg.LogViewerAutoRefresh)
 
-	followButton := widget.NewButton("Follow", nil)
+	followButton := widget.NewButton("Следить", nil)
 
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск по тексту...")
 
-	levelSelect := widget.NewSelect([]string{"All", "Error", "Warn", "Info"}, nil)
-	levelSelect.SetSelected("All")
+	levelSelect := widget.NewSelect([]string{"Все", "Ошибки", "Предупреждения", "Инфо"}, nil)
+	levelSelect.SetSelected("Все")
 
 	stopAutoRefresh := make(chan struct{})
 	autoRefreshStarted := false
@@ -66,14 +66,14 @@ func showLogsWindow(
 
 			levelMatch := true
 			switch level {
-			case "error":
+			case "ошибки":
 				levelMatch = strings.Contains(lineLower, "error") ||
 					strings.Contains(lineLower, "failed") ||
 					strings.Contains(lineLower, "fatal")
-			case "warn":
+			case "предупреждения":
 				levelMatch = strings.Contains(lineLower, "warn") ||
 					strings.Contains(lineLower, "warning")
-			case "info":
+			case "инфо":
 				levelMatch = strings.Contains(lineLower, "info")
 			}
 
@@ -162,14 +162,14 @@ func showLogsWindow(
 		if followStarted {
 			close(stopFollow)
 			followStarted = false
-			followButton.SetText("Follow")
-			infoLabel.SetText("Follow остановлен")
+			followButton.SetText("Следить")
+			infoLabel.SetText("Слежение остановлено")
 			return
 		}
 
 		loadLogs()
 		followStarted = true
-		followButton.SetText("Following...")
+		followButton.SetText("Слежение...")
 		stopFollow = make(chan struct{})
 
 		go func() {

@@ -16,7 +16,7 @@ import (
 )
 
 func buildReportTab(parent fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabel("Diagnostics Report")
+	title := widget.NewLabel("Диагностический отчёт")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
 	subtitle := widget.NewLabel("Экспорт снимка состояния системы, избранного и логов")
@@ -61,7 +61,7 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 	}
 
 	buildBundle := func() {
-		statusLabel.SetText("Статус: сбор diagnostics bundle...")
+		statusLabel.SetText("Статус: сбор диагностического пакета...")
 
 		logLines := 100
 		fmt.Sscanf(linesEntry.Text, "%d", &logLines)
@@ -80,14 +80,14 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 			if err != nil {
 				fyne.Do(func() {
 					ShowError(parent, err)
-					statusLabel.SetText("Статус: ошибка сборки bundle")
+					statusLabel.SetText("Статус: ошибка сборки диагностического пакета")
 				})
 				return
 			}
 
 			fyne.Do(func() {
 				reportOutput.SetText(report)
-				statusLabel.SetText("Статус: diagnostics bundle собран")
+				statusLabel.SetText("Статус: диагностический пакет собран")
 			})
 		}()
 	}
@@ -149,16 +149,16 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 	}
 
 	buildButton := widget.NewButton("Собрать отчёт", buildReport)
-	bundleButton := widget.NewButton("Diagnostics bundle", buildBundle)
+	bundleButton := widget.NewButton("Диагностический пакет", buildBundle)
 	saveButton := widget.NewButton("Сохранить как...", saveReport)
-	quickSaveButton := widget.NewButton("Быстро сохранить в Home", saveToDefaultLocation)
+	quickSaveButton := widget.NewButton("Быстро сохранить в домашнюю папку", saveToDefaultLocation)
 
 	content := container.NewBorder(
 		container.NewVBox(
 			title,
 			subtitle,
 			widget.NewSeparator(),
-			widget.NewLabel("Log lines for each favorite service/container"),
+			widget.NewLabel("Строк логов для каждого избранного сервиса/контейнера"),
 			linesEntry,
 			container.NewHBox(buildButton, bundleButton, saveButton, quickSaveButton),
 			statusLabel,

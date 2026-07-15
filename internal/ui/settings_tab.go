@@ -24,19 +24,19 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	defaultLogLinesEntry := widget.NewEntry()
 	defaultLogLinesEntry.SetText(strconv.Itoa(cfg.DefaultLogLines))
 
-	dashboardAutoRefreshCheck := widget.NewCheck("Dashboard auto refresh", nil)
+	dashboardAutoRefreshCheck := widget.NewCheck("Автообновление дашборда", nil)
 	dashboardAutoRefreshCheck.SetChecked(cfg.DashboardAutoRefresh)
 
-	servicesAutoRefreshCheck := widget.NewCheck("Services auto refresh", nil)
+	servicesAutoRefreshCheck := widget.NewCheck("Автообновление сервисов", nil)
 	servicesAutoRefreshCheck.SetChecked(cfg.ServicesAutoRefresh)
 
-	dockerAutoRefreshCheck := widget.NewCheck("Docker auto refresh", nil)
+	dockerAutoRefreshCheck := widget.NewCheck("Автообновление Docker", nil)
 	dockerAutoRefreshCheck.SetChecked(cfg.DockerAutoRefresh)
 
-	logsAutoRefreshCheck := widget.NewCheck("Logs tab auto refresh", nil)
+	logsAutoRefreshCheck := widget.NewCheck("Автообновление вкладки логов", nil)
 	logsAutoRefreshCheck.SetChecked(cfg.LogsAutoRefresh)
 
-	logViewerAutoRefreshCheck := widget.NewCheck("Log viewer auto refresh", nil)
+	logViewerAutoRefreshCheck := widget.NewCheck("Автообновление окна логов", nil)
 	logViewerAutoRefreshCheck.SetChecked(cfg.LogViewerAutoRefresh)
 
 	themeSelect := widget.NewSelect([]string{"dark", "light"}, nil)
@@ -47,21 +47,21 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	configPath, err := config.ConfigFilePath()
 	if err != nil {
-		configPath = "unavailable"
+		configPath = "недоступно"
 	}
 
-	statusLabel := widget.NewLabel("Измените настройки и нажмите Save")
+	statusLabel := widget.NewLabel("Измените настройки и нажмите «Сохранить настройки»")
 
-	saveButton := widget.NewButton("Save settings", func() {
+	saveButton := widget.NewButton("Сохранить настройки", func() {
 		refreshInterval, err := strconv.Atoi(strings.TrimSpace(refreshIntervalEntry.Text))
 		if err != nil || refreshInterval <= 0 {
-			dialog.ShowError(fmt.Errorf("refresh interval must be a positive number"), parent)
+			dialog.ShowError(fmt.Errorf("интервал обновления должен быть положительным числом"), parent)
 			return
 		}
 
 		defaultLogLines, err := strconv.Atoi(strings.TrimSpace(defaultLogLinesEntry.Text))
 		if err != nil || defaultLogLines <= 0 {
-			dialog.ShowError(fmt.Errorf("default log lines must be a positive number"), parent)
+			dialog.ShowError(fmt.Errorf("количество строк логов должно быть положительным числом"), parent)
 			return
 		}
 
@@ -94,19 +94,20 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		appstate.SetConfig(newCfg)
 
 		if newCfg.Theme == "light" {
-			a := fyne.CurrentApp()
-			a.Settings().SetTheme(theme.LightTheme())
+			fyne.CurrentApp().Settings().SetTheme(theme.LightTheme())
+		} else {
+			fyne.CurrentApp().Settings().SetTheme(theme.DarkTheme())
 		}
 
 		statusLabel.SetText("Настройки сохранены")
 		dialog.ShowInformation(
-			"Settings saved",
+			"Настройки сохранены",
 			"Настройки сохранены.\n\nНекоторые изменения полностью применятся после перезапуска приложения.",
 			parent,
 		)
 	})
 
-	resetButton := widget.NewButton("Reset to defaults", func() {
+	resetButton := widget.NewButton("Сбросить настройки", func() {
 		defaultCfg := config.DefaultConfig()
 
 		refreshIntervalEntry.SetText(strconv.Itoa(defaultCfg.RefreshIntervalSeconds))
@@ -122,18 +123,18 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		if defaultCfg.Theme == "" {
 			themeSelect.SetSelected("dark")
 		}
-		statusLabel.SetText("Значения сброшены к default")
+		statusLabel.SetText("Значения сброшены по умолчанию")
 	})
 
 	form := container.NewVBox(
-		widget.NewLabelWithStyle("Settings", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabel("Application config"),
+		widget.NewLabelWithStyle("Настройки", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabel("Конфигурация приложения"),
 		widget.NewSeparator(),
 
-		widget.NewLabel("Refresh interval (seconds)"),
+		widget.NewLabel("Интервал обновления (сек)"),
 		refreshIntervalEntry,
 
-		widget.NewLabel("Default log lines"),
+		widget.NewLabel("Строк логов по умолчанию"),
 		defaultLogLinesEntry,
 
 		widget.NewSeparator(),
@@ -146,12 +147,12 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 		widget.NewSeparator(),
 
-		widget.NewLabel("Theme"),
+		widget.NewLabel("Тема"),
 		themeSelect,
 
 		widget.NewSeparator(),
 
-		widget.NewLabel("Config file"),
+		widget.NewLabel("Файл конфигурации"),
 		widget.NewLabel(configPath),
 
 		widget.NewSeparator(),
@@ -162,7 +163,7 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		),
 
 		container.NewHBox(
-			widget.NewButton("Export config", func() {
+			widget.NewButton("Экспорт конфигурации", func() {
 				dialog.ShowFileSave(func(writer fyne.URIWriteCloser, err error) {
 					if err != nil || writer == nil {
 						return
@@ -186,7 +187,7 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 					}
 				}, parent)
 			}),
-			widget.NewButton("Import config", func() {
+			widget.NewButton("Импорт конфигурации", func() {
 				dialog.ShowFileOpen(func(reader fyne.URIReadCloser, err error) {
 					if err != nil || reader == nil {
 						return

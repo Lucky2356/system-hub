@@ -10,7 +10,7 @@ import (
 )
 
 func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabel("Commands")
+	title := widget.NewLabel("Команды")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
 	subtitle := widget.NewLabel("Безопасный запуск read-only команд для диагностики")
@@ -33,7 +33,7 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 	descriptionLabel.Wrapping = fyne.TextWrapWord
 
 	argEntry := widget.NewEntry()
-	argEntry.SetPlaceHolder("Argument")
+	argEntry.SetPlaceHolder("Аргумент")
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
 
@@ -57,7 +57,7 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 			if cmd.ArgHint != "" {
 				argEntry.SetPlaceHolder(cmd.ArgHint)
 			} else {
-				argEntry.SetPlaceHolder("Enter argument")
+				argEntry.SetPlaceHolder("Введите аргумент")
 			}
 		} else {
 			argEntry.SetText("")
@@ -97,8 +97,8 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 		updateSelectedCommandUI()
 	}
 
-	runButton := widget.NewButton("Run", runCommand)
-	clearButton := widget.NewButton("Clear", func() {
+	runButton := widget.NewButton("Выполнить", runCommand)
+	clearButton := widget.NewButton("Очистить", func() {
 		outputEntry.SetText("")
 		statusLabel.SetText("Статус: очищено")
 	})
@@ -108,7 +108,7 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 			title,
 			subtitle,
 			widget.NewSeparator(),
-			widget.NewLabel("Command"),
+			widget.NewLabel("Команда"),
 			commandSelect,
 			descriptionLabel,
 			argEntry,

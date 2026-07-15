@@ -9,20 +9,20 @@ import (
 )
 
 func NewSystemInfoTab(w fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabelWithStyle("System Info", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	title := widget.NewLabelWithStyle("О системе", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
 	form := widget.NewForm(
-		widget.NewFormItem("Hostname", widget.NewLabel("")),
-		widget.NewFormItem("OS", widget.NewLabel("")),
-		widget.NewFormItem("Platform", widget.NewLabel("")),
-		widget.NewFormItem("Platform Version", widget.NewLabel("")),
-		widget.NewFormItem("Kernel", widget.NewLabel("")),
-		widget.NewFormItem("Kernel Version", widget.NewLabel("")),
-		widget.NewFormItem("Architecture", widget.NewLabel("")),
-		widget.NewFormItem("Current User", widget.NewLabel("")),
-		widget.NewFormItem("Uptime", widget.NewLabel("")),
-		widget.NewFormItem("Boot Time", widget.NewLabel("")),
-		widget.NewFormItem("Go Version", widget.NewLabel("")),
+		widget.NewFormItem("Имя хоста", widget.NewLabel("")),
+		widget.NewFormItem("ОС", widget.NewLabel("")),
+		widget.NewFormItem("Платформа", widget.NewLabel("")),
+		widget.NewFormItem("Версия платформы", widget.NewLabel("")),
+		widget.NewFormItem("Ядро", widget.NewLabel("")),
+		widget.NewFormItem("Версия ядра", widget.NewLabel("")),
+		widget.NewFormItem("Архитектура", widget.NewLabel("")),
+		widget.NewFormItem("Текущий пользователь", widget.NewLabel("")),
+		widget.NewFormItem("Аптайм", widget.NewLabel("")),
+		widget.NewFormItem("Время загрузки", widget.NewLabel("")),
+		widget.NewFormItem("Версия Go", widget.NewLabel("")),
 	)
 
 	statusLabel := widget.NewLabel("")
@@ -44,7 +44,7 @@ func NewSystemInfoTab(w fyne.Window) fyne.CanvasObject {
 		setFormValue(form, 9, info.BootTime)
 		setFormValue(form, 10, info.GoVersion)
 
-		statusLabel.SetText("Information loaded")
+		statusLabel.SetText("Информация загружена")
 	}
 
 	refresh := func() {
@@ -52,13 +52,13 @@ func NewSystemInfoTab(w fyne.Window) fyne.CanvasObject {
 		updateForm(info)
 	}
 
-	refreshBtn := widget.NewButton("Refresh", func() {
+	refreshBtn := widget.NewButton("Обновить", func() {
 		refresh()
 	})
 
-	copyBtn := widget.NewButton("Copy to clipboard", func() {
+	copyBtn := widget.NewButton("Копировать", func() {
 		w.Clipboard().SetContent(lastInfo.ToMultilineString())
-		statusLabel.SetText("Copied to clipboard")
+		statusLabel.SetText("Скопировано в буфер обмена")
 	})
 
 	buttons := container.NewHBox(refreshBtn, copyBtn)
@@ -87,7 +87,7 @@ func setFormValue(form *widget.Form, index int, value string) {
 	}
 
 	if value == "" {
-		value = "N/A"
+		value = "н/д"
 	}
 	label.SetText(value)
 }

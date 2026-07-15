@@ -20,7 +20,7 @@ import (
 )
 
 func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
-	title := widget.NewLabel("Services")
+	title := widget.NewLabel("Сервисы")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
 	subtitle := widget.NewLabel("Просмотр и управление systemd-сервисами")
@@ -28,11 +28,19 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск (например: ssh, docker...)")
 
-	statusFilter := widget.NewSelect([]string{"All", "Active", "Inactive", "Failed", "Activating"}, nil)
-	statusFilter.SetSelected("All")
+	// Русские подписи фильтра сопоставляются со значениями ActiveState systemd.
+	statusFilterValues := map[string]string{
+		"Все":         "",
+		"Активные":    "active",
+		"Неактивные":  "inactive",
+		"Сбойные":     "failed",
+		"Запускаются": "activating",
+	}
+	statusFilter := widget.NewSelect([]string{"Все", "Активные", "Неактивные", "Сбойные", "Запускаются"}, nil)
+	statusFilter.SetSelected("Все")
 
-	sortSelect := widget.NewSelect([]string{"Name", "Status"}, nil)
-	sortSelect.SetSelected("Name")
+	sortSelect := widget.NewSelect([]string{"Имя", "Статус"}, nil)
+	sortSelect.SetSelected("Имя")
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
 
@@ -42,7 +50,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	lastSelectedServiceName := ""
 
 	autoRefreshCheck := widget.NewCheck(
-		fmt.Sprintf("Auto refresh (%d сек)", appstate.GetConfig().RefreshIntervalSeconds),
+		fmt.Sprintf("Автообновление (%d сек)", appstate.GetConfig().RefreshIntervalSeconds),
 		nil,
 	)
 	autoRefreshCheck.SetChecked(cfg.ServicesAutoRefresh)
@@ -50,13 +58,13 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	autoRefreshStarted := false
 
 	detailsButton := widget.NewButton("Подробнее", nil)
-	openUnitButton := widget.NewButton("Open Unit", nil)
-	logsButton := widget.NewButton("Logs", nil)
-	startButton := widget.NewButton("Start", nil)
-	stopButton := widget.NewButton("Stop", nil)
-	restartButton := widget.NewButton("Restart", nil)
-	enableButton := widget.NewButton("Enable", nil)
-	disableButton := widget.NewButton("Disable", nil)
+	openUnitButton := widget.NewButton("Юнит-файл", nil)
+	logsButton := widget.NewButton("Логи", nil)
+	startButton := widget.NewButton("Старт", nil)
+	stopButton := widget.NewButton("Стоп", nil)
+	restartButton := widget.NewButton("Рестарт", nil)
+	enableButton := widget.NewButton("Включить", nil)
+	disableButton := widget.NewButton("Отключить", nil)
 	favoriteButton := widget.NewButton("☆", nil)
 
 	detailsButton.Disable()
@@ -114,7 +122,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	sortServices := func(items []system.ServiceInfo) {
 		switch sortSelect.Selected {
-		case "Status":
+		case "Статус":
 			sort.SliceStable(items, func(i, j int) bool {
 				if items[i].ActiveState == items[j].ActiveState {
 					return items[i].Name < items[j].Name
@@ -130,11 +138,11 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	filterServices := func(query string) []system.ServiceInfo {
 		query = strings.ToLower(strings.TrimSpace(query))
-		status := statusFilter.Selected
+		status := statusFilterValues[statusFilter.Selected]
 
 		var result []system.ServiceInfo
 		for _, svc := range allServices {
-			if status != "All" && !strings.EqualFold(svc.ActiveState, status) {
+			if status != "" && !strings.EqualFold(svc.ActiveState, status) {
 				continue
 			}
 
@@ -264,17 +272,17 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		description.Wrapping = fyne.TextWrapWord
 
 		content := container.NewVBox(
-			widget.NewLabel("Name: "+svc.Name),
-			widget.NewLabel("Load: "+svc.LoadState),
-			widget.NewLabel("Active: "+svc.ActiveState),
-			widget.NewLabel("Sub: "+svc.SubState),
+			widget.NewLabel("Имя: "+svc.Name),
+			widget.NewLabel("Load-состояние: "+svc.LoadState),
+			widget.NewLabel("Active-состояние: "+svc.ActiveState),
+			widget.NewLabel("Sub-состояние: "+svc.SubState),
 			widget.NewSeparator(),
-			widget.NewLabel("Description:"),
+			widget.NewLabel("Описание:"),
 			description,
 		)
 
 		dialog.ShowCustom(
-			"Service Details",
+			"Сведения о сервисе",
 			"Закрыть",
 			container.NewPadded(content),
 			parent,
@@ -445,22 +453,22 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		unitPath, err := system.FindServiceUnitFile(svc.Name)
 		if err != nil {
 			ShowError(parent, err)
-			statusLabel.SetText("Статус: unit file не найден")
+			statusLabel.SetText("Статус: юнит-файл не найден")
 			return
 		}
 
 		if err := OpenFileInFiles(unitPath); err != nil {
 			ShowError(parent, err)
-			statusLabel.SetText("Статус: не удалось открыть unit file")
+			statusLabel.SetText("Статус: не удалось открыть юнит-файл")
 			return
 		}
 
 		dialog.ShowInformation(
-			"Unit file opened",
-			"Файл открыт во вкладке Files:\n"+unitPath,
+			"Юнит-файл открыт",
+			"Файл открыт во вкладке «Файлы»:\n"+unitPath,
 			parent,
 		)
-		statusLabel.SetText("Статус: unit file открыт")
+		statusLabel.SetText("Статус: юнит-файл открыт")
 	}
 
 	logsButton.OnTapped = func() {
@@ -474,8 +482,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		statusLabel.SetText("Открытие окна логов...")
 
 		showLogsWindow(
-			"Service Logs: "+svc.Name,
-			"Logs for service "+svc.Name,
+			"Логи сервиса: "+svc.Name,
+			"Логи сервиса "+svc.Name,
 			func() (string, error) {
 				return system.GetServiceLogs(svc.Name, cfg.DefaultLogLines)
 			},

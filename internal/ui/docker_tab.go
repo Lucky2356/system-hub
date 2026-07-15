@@ -25,17 +25,24 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	subtitle := widget.NewLabel("Просмотр и управление Docker-контейнерами")
 
-	modeSelect := widget.NewSelect([]string{"Containers", "Images"}, nil)
-	modeSelect.SetSelected("Containers")
+	modeSelect := widget.NewSelect([]string{"Контейнеры", "Образы"}, nil)
+	modeSelect.SetSelected("Контейнеры")
 
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск контейнера (например: nginx, postgres...)")
 
-	statusFilter := widget.NewSelect([]string{"All", "Running", "Exited", "Paused"}, nil)
-	statusFilter.SetSelected("All")
+	// Русские подписи фильтра сопоставляются со значениями состояния Docker.
+	statusFilterValues := map[string]string{
+		"Все":           "",
+		"Запущенные":    "running",
+		"Остановленные": "exited",
+		"На паузе":      "paused",
+	}
+	statusFilter := widget.NewSelect([]string{"Все", "Запущенные", "Остановленные", "На паузе"}, nil)
+	statusFilter.SetSelected("Все")
 
-	sortSelect := widget.NewSelect([]string{"Name", "Status"}, nil)
-	sortSelect.SetSelected("Name")
+	sortSelect := widget.NewSelect([]string{"Имя", "Статус"}, nil)
+	sortSelect.SetSelected("Имя")
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
 
@@ -47,7 +54,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	lastSelectedContainerName := ""
 
 	autoRefreshCheck := widget.NewCheck(
-		fmt.Sprintf("Auto refresh (%d сек)", appstate.GetConfig().RefreshIntervalSeconds),
+		fmt.Sprintf("Автообновление (%d сек)", appstate.GetConfig().RefreshIntervalSeconds),
 		nil,
 	)
 	autoRefreshCheck.SetChecked(cfg.DockerAutoRefresh)
@@ -55,15 +62,15 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	autoRefreshStarted := false
 
 	detailsButton := widget.NewButton("Подробнее", nil)
-	inspectButton := widget.NewButton("Inspect", nil)
-	logsButton := widget.NewButton("Logs", nil)
-	startButton := widget.NewButton("Start", nil)
-	stopButton := widget.NewButton("Stop", nil)
-	restartButton := widget.NewButton("Restart", nil)
+	inspectButton := widget.NewButton("Инспекция", nil)
+	logsButton := widget.NewButton("Логи", nil)
+	startButton := widget.NewButton("Старт", nil)
+	stopButton := widget.NewButton("Стоп", nil)
+	restartButton := widget.NewButton("Рестарт", nil)
 	favoriteButton := widget.NewButton("☆", nil)
 
-	pullButton := widget.NewButton("Pull image", nil)
-	removeImageButton := widget.NewButton("Remove image", nil)
+	pullButton := widget.NewButton("Загрузить образ", nil)
+	removeImageButton := widget.NewButton("Удалить образ", nil)
 	removeImageButton.Disable()
 
 	hideContainerButtons := func() {
@@ -91,7 +98,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	}
 
 	isImagesMode := func() bool {
-		return modeSelect.Selected == "Images"
+		return modeSelect.Selected == "Образы"
 	}
 
 	detailsButton.Disable()
@@ -151,7 +158,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	sortContainers := func(items []system.DockerContainerInfo) {
 		switch sortSelect.Selected {
-		case "Status":
+		case "Статус":
 			sort.SliceStable(items, func(i, j int) bool {
 				if items[i].State == items[j].State {
 					return items[i].Names < items[j].Names
@@ -167,11 +174,11 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	filterContainers := func(query string) []system.DockerContainerInfo {
 		query = strings.ToLower(strings.TrimSpace(query))
-		status := statusFilter.Selected
+		status := statusFilterValues[statusFilter.Selected]
 
 		var result []system.DockerContainerInfo
 		for _, c := range allContainers {
-			if status != "All" && !strings.EqualFold(c.State, status) {
+			if status != "" && !strings.EqualFold(c.State, status) {
 				continue
 			}
 
@@ -373,15 +380,15 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	showContainerDetails := func(c system.DockerContainerInfo) {
 		content := container.NewVBox(
-			widget.NewLabel("Name: "+c.Names),
-			widget.NewLabel("Image: "+c.Image),
-			widget.NewLabel("State: "+c.State),
-			widget.NewLabel("Status: "+c.Status),
+			widget.NewLabel("Имя: "+c.Names),
+			widget.NewLabel("Образ: "+c.Image),
+			widget.NewLabel("Состояние: "+c.State),
+			widget.NewLabel("Статус: "+c.Status),
 			widget.NewLabel("ID: "+c.ID),
 		)
 
 		dialog.ShowCustom(
-			"Container Details",
+			"Сведения о контейнере",
 			"Закрыть",
 			container.NewPadded(content),
 			parent,
@@ -446,8 +453,8 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	showContainerLogs := func(containerName string) {
 		showLogsWindow(
-			"Docker Logs: "+containerName,
-			"Logs for container "+containerName,
+			"Логи контейнера: "+containerName,
+			"Логи контейнера "+containerName,
 			func() (string, error) {
 				return system.GetDockerContainerLogs(containerName, cfg.DefaultLogLines)
 			},
@@ -483,7 +490,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	modeSelect.OnChanged = func(mode string) {
 		switch mode {
-		case "Images":
+		case "Образы":
 			subtitle.SetText("Просмотр и управление Docker-образами")
 			searchEntry.SetPlaceHolder("Поиск образа (например: nginx, ubuntu...)")
 			statusFilter.Hide()
@@ -542,9 +549,9 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		imageEntry.SetPlaceHolder("nginx:latest, ubuntu:22.04...")
 
 		dialog.ShowCustomConfirm(
-			"Pull Docker Image",
-			"Pull",
-			"Cancel",
+			"Загрузка Docker-образа",
+			"Загрузить",
+			"Отмена",
 			container.NewPadded(container.NewVBox(
 				widget.NewLabel("Введите имя образа для загрузки:"),
 				imageEntry,
@@ -587,7 +594,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		imageName := img.Repository + ":" + img.Tag
 
 		dialog.ShowConfirm(
-			"Remove image",
+			"Удаление образа",
 			fmt.Sprintf("Удалить образ %s?", imageName),
 			func(confirmed bool) {
 				if !confirmed {
@@ -683,7 +690,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 				output.Disable()
 
 				dialog.ShowCustom(
-					"Docker Inspect: "+containerName,
+					"Инспекция контейнера: "+containerName,
 					"Закрыть",
 					container.NewPadded(output),
 					parent,

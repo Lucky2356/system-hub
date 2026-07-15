@@ -13,7 +13,7 @@ import (
 )
 
 func buildActivityTab() fyne.CanvasObject {
-	title := widget.NewLabel("Activity")
+	title := widget.NewLabel("История действий")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
 	subtitle := widget.NewLabel("История действий, выполненных из приложения")
@@ -56,7 +56,7 @@ func buildActivityTab() fyne.CanvasObject {
 		}
 
 		if len(lines) == 0 {
-			return "No activity yet"
+			return "Пока нет действий"
 		}
 
 		return strings.Join(lines, "\n")

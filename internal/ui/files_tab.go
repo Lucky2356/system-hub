@@ -14,10 +14,10 @@ import (
 )
 
 func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabel("Files")
+	title := widget.NewLabel("Файлы")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("Read-only просмотр важных директорий и конфигов")
+	subtitle := widget.NewLabel("Просмотр важных директорий и конфигов")
 
 	presets := system.GetPresetPaths()
 	presetMap := make(map[string]string, len(presets))
@@ -166,7 +166,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		statusLabel.SetText("Статус: открыт файл " + item.FullPath)
 	}
 
-	upButton := widget.NewButton("Up", func() {
+	upButton := widget.NewButton("Вверх", func() {
 		if strings.TrimSpace(currentPath) == "" {
 			return
 		}
@@ -190,15 +190,15 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		loadPath(next)
 	})
 
-	openButton := widget.NewButton("Open", func() {
+	openButton := widget.NewButton("Открыть", func() {
 		loadPath(pathEntry.Text)
 	})
 
-	viewButton := widget.NewButton("View", func() {
+	viewButton := widget.NewButton("Просмотр", func() {
 		openSelected()
 	})
 
-	editButton := widget.NewButton("Edit", func() {
+	editButton := widget.NewButton("Правка", func() {
 		if strings.TrimSpace(currentFilePath) == "" {
 			statusLabel.SetText("Статус: сначала открой файл")
 			return
@@ -207,7 +207,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		updateEditMode(true)
 	})
 
-	reloadButton := widget.NewButton("Reload", func() {
+	reloadButton := widget.NewButton("Перечитать", func() {
 		if strings.TrimSpace(currentFilePath) == "" {
 			statusLabel.SetText("Статус: сначала открой файл")
 			return
@@ -225,7 +225,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		statusLabel.SetText("Статус: файл перезагружен")
 	})
 
-	saveButton := widget.NewButton("Save", func() {
+	saveButton := widget.NewButton("Сохранить", func() {
 		if strings.TrimSpace(currentFilePath) == "" {
 			statusLabel.SetText("Статус: сначала открой файл")
 			return
@@ -246,7 +246,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		statusLabel.SetText("Статус: файл сохранён")
 	})
 
-	infoButton := widget.NewButton("Info", func() {
+	infoButton := widget.NewButton("Инфо", func() {
 		if selectedIndex < 0 || selectedIndex >= len(filteredEntries) {
 			statusLabel.SetText("Статус: выбери файл или папку")
 			return
@@ -255,23 +255,23 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		item := filteredEntries[selectedIndex]
 
 		text := fmt.Sprintf(
-			"Name: %s\nPath: %s\nType: %s\nSize: %s",
+			"Имя: %s\nПуть: %s\nТип: %s\nРазмер: %s",
 			item.Name,
 			item.FullPath,
-			map[bool]string{true: "Directory", false: "File"}[item.IsDir],
+			map[bool]string{true: "Директория", false: "Файл"}[item.IsDir],
 			system.FormatFileSize(item.Size),
 		)
 
-		dialog.ShowInformation("File Info", text, parent)
+		dialog.ShowInformation("Сведения о файле", text, parent)
 	})
 
-	newFileButton := widget.NewButton("New File", func() {
+	newFileButton := widget.NewButton("Новый файл", func() {
 		nameEntry := widget.NewEntry()
 		nameEntry.SetPlaceHolder("filename.txt")
 
-		dialog.ShowCustomConfirm("New File", "Create", "Cancel",
+		dialog.ShowCustomConfirm("Новый файл", "Создать", "Отмена",
 			container.NewPadded(container.NewVBox(
-				widget.NewLabel("Enter filename in current directory:"),
+				widget.NewLabel("Введите имя файла в текущей директории:"),
 				nameEntry,
 			)),
 			func(confirmed bool) {
@@ -290,13 +290,13 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		)
 	})
 
-	newDirButton := widget.NewButton("New Dir", func() {
+	newDirButton := widget.NewButton("Новая папка", func() {
 		nameEntry := widget.NewEntry()
 		nameEntry.SetPlaceHolder("newdir")
 
-		dialog.ShowCustomConfirm("New Directory", "Create", "Cancel",
+		dialog.ShowCustomConfirm("Новая директория", "Создать", "Отмена",
 			container.NewPadded(container.NewVBox(
-				widget.NewLabel("Enter directory name:"),
+				widget.NewLabel("Введите имя директории:"),
 				nameEntry,
 			)),
 			func(confirmed bool) {
@@ -315,7 +315,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		)
 	})
 
-	renameButton := widget.NewButton("Rename", func() {
+	renameButton := widget.NewButton("Переименовать", func() {
 		if selectedIndex < 0 || selectedIndex >= len(filteredEntries) {
 			statusLabel.SetText("Статус: выбери файл или папку")
 			return
@@ -325,9 +325,9 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		nameEntry := widget.NewEntry()
 		nameEntry.SetText(item.Name)
 
-		dialog.ShowCustomConfirm("Rename", "Rename", "Cancel",
+		dialog.ShowCustomConfirm("Переименование", "Переименовать", "Отмена",
 			container.NewPadded(container.NewVBox(
-				widget.NewLabel("New name for " + item.Name + ":"),
+				widget.NewLabel("Новое имя для "+item.Name+":"),
 				nameEntry,
 			)),
 			func(confirmed bool) {
@@ -350,7 +350,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		)
 	})
 
-	deleteButton := widget.NewButton("Delete", func() {
+	deleteButton := widget.NewButton("Удалить", func() {
 		if selectedIndex < 0 || selectedIndex >= len(filteredEntries) {
 			statusLabel.SetText("Статус: выбери файл или папку")
 			return
@@ -359,10 +359,10 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		item := filteredEntries[selectedIndex]
 		label := "файл"
 		if item.IsDir {
-			label = "директорию (рекурсивно)"
+			label = "директорию (только пустую)"
 		}
 
-		dialog.ShowConfirm("Delete", fmt.Sprintf("Удалить %s %s?", label, item.Name), func(confirmed bool) {
+		dialog.ShowConfirm("Удаление", fmt.Sprintf("Удалить %s %s?", label, item.Name), func(confirmed bool) {
 			if !confirmed {
 				return
 			}
@@ -395,7 +395,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 
 	fileListContainer := container.NewBorder(
 		container.NewVBox(
-			widget.NewLabel("Directory"),
+			widget.NewLabel("Директория"),
 			presetSelect,
 			pathEntry,
 			searchEntry,
@@ -424,7 +424,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 	RegisterFilesOpener(func(path string) error {
 		path = strings.TrimSpace(path)
 		if path == "" {
-			return fmt.Errorf("path is empty")
+			return fmt.Errorf("путь пустой")
 		}
 
 		dir := filepath.Dir(path)
