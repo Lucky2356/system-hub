@@ -33,10 +33,10 @@ func GetSafeCommands() []SafeCommand {
 			ArgHint:     "Например: nginx.service",
 			BuildArgs: func(arg string) ([]string, error) {
 				arg = strings.TrimSpace(arg)
-				if arg == "" {
-					return nil, fmt.Errorf("service name is required")
+				if err := validateName("service", arg); err != nil {
+					return nil, err
 				}
-				return []string{"status", arg, "--no-pager"}, nil
+				return []string{"status", "--no-pager", "--", arg}, nil
 			},
 		},
 		{
@@ -74,8 +74,8 @@ func GetSafeCommands() []SafeCommand {
 			ArgHint:     "Например: docker.service",
 			BuildArgs: func(arg string) ([]string, error) {
 				arg = strings.TrimSpace(arg)
-				if arg == "" {
-					return nil, fmt.Errorf("service name is required")
+				if err := validateName("service", arg); err != nil {
+					return nil, err
 				}
 				return []string{"-u", arg, "-n", "100", "--no-pager"}, nil
 			},
@@ -104,7 +104,7 @@ func RunSafeCommand(key, arg string) (string, error) {
 	}
 
 	if selected == nil {
-		return "", fmt.Errorf("unknown command: %s", key)
+		return "", fmt.Errorf("неизвестная команда: %s", key)
 	}
 
 	args, err := selected.BuildArgs(arg)
@@ -123,7 +123,7 @@ func RunSafeCommand(key, arg string) (string, error) {
 	}
 
 	if len(output) == 0 {
-		return "No output", nil
+		return "Нет вывода", nil
 	}
 
 	return string(output), nil

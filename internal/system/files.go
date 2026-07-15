@@ -28,8 +28,8 @@ func GetPresetPaths() []PresetPath {
 		{Title: "Systemd units (/lib/systemd/system)", Path: "/lib/systemd/system"},
 		{Title: "Nginx (/etc/nginx)", Path: "/etc/nginx"},
 		{Title: "Docker (/etc/docker)", Path: "/etc/docker"},
-		{Title: "Logs (/var/log)", Path: "/var/log"},
-		{Title: "Home", Path: homeDir},
+		{Title: "Логи (/var/log)", Path: "/var/log"},
+		{Title: "Домашняя папка", Path: homeDir},
 	}
 }
 
@@ -39,9 +39,16 @@ func sanitizePath(path string) (string, error) {
 		return "", fmt.Errorf("path is empty")
 	}
 
-	cleaned := filepath.Clean(path)
-	if cleaned != path {
-		path = cleaned
+	if strings.ContainsRune(path, 0) {
+		return "", fmt.Errorf("path contains NUL byte")
+	}
+
+	// Require absolute paths. All navigation in the app is rooted at an absolute
+	// preset path or the user's home, so this rejects ambiguous relative input
+	// (and any residual ".." traversal is collapsed by Clean below).
+	path = filepath.Clean(path)
+	if !filepath.IsAbs(path) {
+		return "", fmt.Errorf("path must be absolute: %q", path)
 	}
 
 	return path, nil
@@ -224,7 +231,12 @@ func DeleteFile(path string) error {
 	}
 
 	if info.IsDir() {
-		return os.RemoveAll(path)
+		// Deliberately not recursive: deleting a whole tree from a monitoring
+		// tool is too destructive. Only empty directories can be removed.
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("directory is not empty or cannot be removed: %w", err)
+		}
+		return nil
 	}
 
 	return os.Remove(path)

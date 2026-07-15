@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -56,7 +57,20 @@ type Stats struct {
 	Temperatures []SensorInfo
 }
 
+// GetStats returns a full snapshot including systemd/docker counts. Suitable
+// for one-off consumers (reports, diagnostics bundle).
 func GetStats() (Stats, error) {
+	return collectStats(true)
+}
+
+// GetStatsLight returns only the cheap metrics (CPU/RAM/disk/network/uptime/
+// temperature) plus cached availability flags. It performs no `systemctl
+// list-units` / `docker ps` calls, so it is safe to poll at a high frequency.
+func GetStatsLight() (Stats, error) {
+	return collectStats(false)
+}
+
+func collectStats(heavy bool) (Stats, error) {
 	var result Stats
 
 	cpuPercents, err := cpu.Percent(0, false)
@@ -104,10 +118,14 @@ func GetStats() (Stats, error) {
 		result.NetRecv = netIO[0].BytesRecv
 	}
 
-	result.Temperatures = GetTemperatures()
-
 	result.SystemdAvailable = IsSystemdAvailable()
 	result.DockerAvailable = IsDockerAvailable()
+
+	if !heavy {
+		return result, nil
+	}
+
+	result.Temperatures = GetTemperatures()
 
 	if result.SystemdAvailable {
 		serviceCount, err := CountServices()
@@ -220,22 +238,53 @@ func FormatUptime(seconds uint64) string {
 	return fmt.Sprintf("%dm", minutes)
 }
 
-func IsSystemdAvailable() bool {
-	if runtime.GOOS != "linux" {
-		return false
-	}
+// Availability of systemd/docker rarely changes during a session, and each
+// check spawns a subprocess. Cache results with a short TTL so high-frequency
+// dashboard polling does not repeatedly fork `systemctl`/`docker`.
+const availabilityTTL = 15 * time.Second
 
-	_, err := runCmd("systemctl", "--version")
-	return err == nil
+type availabilityCache struct {
+	mu       sync.Mutex
+	value    bool
+	checkedAt time.Time
+	valid    bool
+}
+
+func (c *availabilityCache) get(check func() bool) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.valid && time.Since(c.checkedAt) < availabilityTTL {
+		return c.value
+	}
+	c.value = check()
+	c.checkedAt = time.Now()
+	c.valid = true
+	return c.value
+}
+
+var (
+	systemdAvailCache availabilityCache
+	dockerAvailCache  availabilityCache
+)
+
+func IsSystemdAvailable() bool {
+	return systemdAvailCache.get(func() bool {
+		if runtime.GOOS != "linux" {
+			return false
+		}
+		_, err := runCmd("systemctl", "--version")
+		return err == nil
+	})
 }
 
 func IsDockerAvailable() bool {
-	output, err := runCmd("docker", "version", "--format", "{{.Client.Version}}")
-	if err != nil {
-		return false
-	}
-
-	return strings.TrimSpace(string(output)) != ""
+	return dockerAvailCache.get(func() bool {
+		output, err := runCmd("docker", "version", "--format", "{{.Client.Version}}")
+		if err != nil {
+			return false
+		}
+		return strings.TrimSpace(string(output)) != ""
+	})
 }
 
 func round(value float64, places int) float64 {

@@ -17,24 +17,35 @@ type ServiceInfo struct {
 	Description string
 }
 
+var servicesCache listCache[ServiceInfo]
+
+// ListServices returns the systemd service list. Results are cached for a
+// short TTL (see listCacheTTL) because dashboard refresh consults the list
+// several times per tick; use InvalidateServicesCache after mutating actions.
 func ListServices() ([]ServiceInfo, error) {
 	if runtime.GOOS != "linux" {
 		return nil, errors.New("services are available only on Linux (systemd)")
 	}
 
-	output, err := runCmd("systemctl",
-		"list-units",
-		"--type=service",
-		"--all",
-		"--no-pager",
-		"--no-legend",
-		"--plain",
-	)
-	if err != nil {
-		return nil, fmt.Errorf("run systemctl list-units: %w", err)
-	}
+	return servicesCache.get(func() ([]ServiceInfo, error) {
+		output, err := runCmd("systemctl",
+			"list-units",
+			"--type=service",
+			"--all",
+			"--no-pager",
+			"--no-legend",
+			"--plain",
+		)
+		if err != nil {
+			return nil, fmt.Errorf("run systemctl list-units: %w", err)
+		}
 
-	return parseSystemctlListUnits(string(output)), nil
+		return parseSystemctlListUnits(string(output)), nil
+	})
+}
+
+func InvalidateServicesCache() {
+	servicesCache.invalidate()
 }
 
 func ListServiceNames() ([]string, error) {
@@ -79,8 +90,8 @@ func ControlService(action string, serviceName string) error {
 	action = strings.TrimSpace(strings.ToLower(action))
 	serviceName = strings.TrimSpace(serviceName)
 
-	if serviceName == "" {
-		return errors.New("service name is empty")
+	if err := validateName("service", serviceName); err != nil {
+		return err
 	}
 
 	switch action {
@@ -89,11 +100,14 @@ func ControlService(action string, serviceName string) error {
 		return fmt.Errorf("unsupported action: %s", action)
 	}
 
-	_, err := runCmd("systemctl", action, serviceName)
+	// "--" terminates option parsing so a crafted unit name cannot be
+	// interpreted as a systemctl flag.
+	_, err := runCmd("systemctl", action, "--", serviceName)
 	if err != nil {
 		return fmt.Errorf("systemctl %s %s: %w", action, serviceName, err)
 	}
 
+	InvalidateServicesCache()
 	return nil
 }
 
@@ -103,8 +117,8 @@ func GetServiceLogs(serviceName string, lines int) (string, error) {
 	}
 
 	serviceName = strings.TrimSpace(serviceName)
-	if serviceName == "" {
-		return "", errors.New("service name is empty")
+	if err := validateName("service", serviceName); err != nil {
+		return "", err
 	}
 
 	if lines <= 0 {

@@ -1,6 +1,7 @@
 package system
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -22,48 +23,58 @@ type DockerImageInfo struct {
 	Size       string
 }
 
+var containersCache listCache[DockerContainerInfo]
+
+// ListDockerContainers returns all containers. Results are cached for a short
+// TTL (see listCacheTTL); use InvalidateContainersCache after mutating actions.
 func ListDockerContainers() ([]DockerContainerInfo, error) {
-	output, err := runCmd("docker", "ps", "-a", "--format", "{{json .}}")
-	if err != nil {
-		return nil, fmt.Errorf("run docker ps: %w", err)
-	}
-
-	rawText := strings.TrimSpace(string(output))
-	if rawText == "" {
-		return []DockerContainerInfo{}, nil
-	}
-
-	lines := strings.Split(rawText, "\n")
-	var containers []DockerContainerInfo
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
+	return containersCache.get(func() ([]DockerContainerInfo, error) {
+		output, err := runCmd("docker", "ps", "-a", "--format", "{{json .}}")
+		if err != nil {
+			return nil, fmt.Errorf("run docker ps: %w", err)
 		}
 
-		var raw struct {
-			ID     string
-			Image  string
-			Names  string
-			State  string
-			Status string
+		rawText := strings.TrimSpace(string(output))
+		if rawText == "" {
+			return []DockerContainerInfo{}, nil
 		}
 
-		if err := json.Unmarshal([]byte(line), &raw); err != nil {
-			return nil, fmt.Errorf("parse docker output: %w", err)
+		lines := strings.Split(rawText, "\n")
+		var containers []DockerContainerInfo
+
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+
+			var raw struct {
+				ID     string
+				Image  string
+				Names  string
+				State  string
+				Status string
+			}
+
+			if err := json.Unmarshal([]byte(line), &raw); err != nil {
+				return nil, fmt.Errorf("parse docker output: %w", err)
+			}
+
+			containers = append(containers, DockerContainerInfo{
+				ID:     raw.ID,
+				Names:  raw.Names,
+				Image:  raw.Image,
+				State:  raw.State,
+				Status: raw.Status,
+			})
 		}
 
-		containers = append(containers, DockerContainerInfo{
-			ID:     raw.ID,
-			Names:  raw.Names,
-			Image:  raw.Image,
-			State:  raw.State,
-			Status: raw.Status,
-		})
-	}
+		return containers, nil
+	})
+}
 
-	return containers, nil
+func InvalidateContainersCache() {
+	containersCache.invalidate()
 }
 
 func ListDockerContainerNames() ([]string, error) {
@@ -113,8 +124,8 @@ func ControlDockerContainer(action string, containerName string) error {
 	action = strings.TrimSpace(strings.ToLower(action))
 	containerName = strings.TrimSpace(containerName)
 
-	if containerName == "" {
-		return fmt.Errorf("container name is empty")
+	if err := validateName("container", containerName); err != nil {
+		return err
 	}
 
 	switch action {
@@ -123,25 +134,26 @@ func ControlDockerContainer(action string, containerName string) error {
 		return fmt.Errorf("unsupported docker action: %s", action)
 	}
 
-	_, err := runCmd("docker", action, containerName)
+	_, err := runCmd("docker", action, "--", containerName)
 	if err != nil {
 		return fmt.Errorf("docker %s %s: %w", action, containerName, err)
 	}
 
+	InvalidateContainersCache()
 	return nil
 }
 
 func GetDockerContainerLogs(containerName string, lines int) (string, error) {
 	containerName = strings.TrimSpace(containerName)
-	if containerName == "" {
-		return "", fmt.Errorf("container name is empty")
+	if err := validateName("container", containerName); err != nil {
+		return "", err
 	}
 
 	if lines <= 0 {
 		lines = 100
 	}
 
-	output, err := runCmd("docker", "logs", "--tail", fmt.Sprintf("%d", lines), containerName)
+	output, err := runCmd("docker", "logs", "--tail", fmt.Sprintf("%d", lines), "--", containerName)
 	if err != nil {
 		return "", fmt.Errorf("docker logs %s: %w", containerName, err)
 	}
@@ -201,11 +213,13 @@ func ListDockerImages() ([]DockerImageInfo, error) {
 
 func PullDockerImage(imageName string) error {
 	imageName = strings.TrimSpace(imageName)
-	if imageName == "" {
-		return fmt.Errorf("image name is empty")
+	if err := validateName("image", imageName); err != nil {
+		return err
 	}
 
-	_, err := runCmd("docker", "pull", imageName)
+	// Pulling a large image can far exceed the default 30s timeout, so run it
+	// without a deadline (still cancellable via process exit).
+	_, err := runCmdContext(context.Background(), 0, "docker", "pull", "--", imageName)
 	if err != nil {
 		return fmt.Errorf("docker pull %s: %w", imageName, err)
 	}
@@ -215,11 +229,11 @@ func PullDockerImage(imageName string) error {
 
 func RemoveDockerImage(imageName string) error {
 	imageName = strings.TrimSpace(imageName)
-	if imageName == "" {
-		return fmt.Errorf("image name is empty")
+	if err := validateName("image", imageName); err != nil {
+		return err
 	}
 
-	_, err := runCmd("docker", "rmi", imageName)
+	_, err := runCmd("docker", "rmi", "--", imageName)
 	if err != nil {
 		return fmt.Errorf("docker rmi %s: %w", imageName, err)
 	}
@@ -229,11 +243,11 @@ func RemoveDockerImage(imageName string) error {
 
 func GetDockerContainerInspect(containerName string) (string, error) {
 	containerName = strings.TrimSpace(containerName)
-	if containerName == "" {
-		return "", fmt.Errorf("container name is empty")
+	if err := validateName("container", containerName); err != nil {
+		return "", err
 	}
 
-	output, err := runCmd("docker", "inspect", containerName)
+	output, err := runCmd("docker", "inspect", "--", containerName)
 	if err != nil {
 		return "", fmt.Errorf("docker inspect %s: %w", containerName, err)
 	}
