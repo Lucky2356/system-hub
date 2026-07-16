@@ -5,21 +5,27 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)](go.mod)
 
-System Hub is a cross-platform GUI application for monitoring and managing Linux systems. Built with Go and the [Fyne](https://fyne.io/) toolkit, it provides a unified interface for systemd services, Docker containers, system metrics, logs, processes, and diagnostics.
+System Hub is a desktop GUI for monitoring and managing a machine's services,
+containers, processes and logs. Built with Go and the [Fyne](https://fyne.io/)
+toolkit, it runs natively on **Linux and Windows**: the same interface drives
+systemd and journalctl on Linux, and the Service Control Manager and the Event
+Log on Windows.
+
+The interface is available in Russian and English.
 
 ## Features
 
-- **Dashboard** — CPU, RAM, disk usage; per-core CPU load; network RX/TX; system temperature (lm-sensors, Nvidia GPU); uptime; top processes by CPU
-- **Services** — Browse systemd services, search/sort, start/stop/restart/enable/disable, view logs, open unit files, mark favorites
-- **Docker** — Browse containers (running/exited/paused), start/stop/restart, inspect, logs, manage images (list/pull/remove), mark favorites
+- **Dashboard** — CPU, RAM, disk usage with ~5 minutes of history; per-core CPU load; network RX/TX with live rate; system temperature (lm-sensors, Nvidia GPU); uptime; top processes by CPU
+- **Services** — Browse services (systemd on Linux, the SCM on Windows), search/sort, start/stop/restart/enable/disable, view logs, open unit files, mark favorites
+- **Docker** — Browse containers (running/exited/paused) with per-container CPU and memory, start/stop/restart, inspect, logs, manage images (list/pull/remove), mark favorites
 - **Processes** — Top processes by CPU/memory with search/sort, listening TCP/UDP ports viewer, kill processes
 - **Files** — File browser and text editor for system configs and logs; view/edit/create/rename/delete, preset paths for common directories (destructive actions require confirmation and run with the current user's privileges)
-- **Commands** — Run predefined safe diagnostic commands (systemctl, docker, journalctl, ss)
+- **Commands** — Run predefined safe diagnostic commands (systemctl/journalctl/ss on Linux, sc/wevtutil/netstat on Windows, docker on both)
 - **System Info** — Hostname, OS, kernel, uptime, user info with copy-to-clipboard
-- **Logs** — Unified log viewer: system logs (journalctl), service logs, container logs; search, level filter, copy, save, auto-refresh, Follow mode
-- **Activity** — Chronological log of all service/container actions with search filter
+- **Logs** — Unified log viewer: system logs (journalctl / Windows Event Log), service logs, container logs; search, level filter, copy, save, auto-refresh, Follow mode
+- **Activity** — Chronological, persisted log of all service/container actions with search filter
 - **Report** — Generate diagnostics report and bundle with system stats, problems, top processes, activity
-- **Settings** — Configurable refresh interval, default log lines, per-tab auto-refresh toggles
+- **Settings** — Language, theme, refresh interval, default log lines, per-tab auto-refresh toggles
 
 ## Install
 
@@ -38,12 +44,18 @@ A portable `system-hub.exe` is also attached if you prefer no installation.
 
 ## Requirements
 
-- Go 1.26+
-- Linux (primary target; partial functionality on Windows/macOS)
-- systemd (for service management)
-- Docker CLI (for container management)
-- lm-sensors (optional, for temperature monitoring)
-- nvidia-smi (optional, for GPU temperature)
+Running a released build needs nothing beyond the OS itself; the rest is
+optional and only unlocks the matching tab.
+
+| | Linux | Windows |
+| --- | --- | --- |
+| Services | systemd | built in (managing services needs administrator rights) |
+| Logs | journalctl | built in (Event Log) |
+| Containers | Docker CLI | Docker CLI |
+| Temperature | lm-sensors, nvidia-smi (optional) | nvidia-smi (optional) |
+
+Building from source needs Go 1.26+ and, on Linux, the Fyne C dependencies
+(see [Build & Run](#build--run)). macOS is not tested.
 
 ## Build & Run
 
@@ -54,24 +66,29 @@ go run ./cmd/system-hub
 Build a standalone binary (with version stamped in):
 
 ```bash
-make build VERSION=v0.1.0        # or: go build -o system-hub ./cmd/system-hub
+make build VERSION=v0.2.0        # or: go build -o system-hub ./cmd/system-hub
 ./system-hub --version
 ```
 
 ## Packaging
 
 Build artifacts are produced by CI (`.github/workflows/release.yml`) on a `vX.Y.Z`
-tag: a Windows `.exe`, plus `.deb` and `.rpm` generated from a single
-[`nfpm.yaml`](nfpm.yaml) and attached to the GitHub Release.
+tag and attached to the GitHub Release: a Windows installer and portable `.exe`,
+plus `.deb` and `.rpm` for `amd64` and `arm64`, all generated from a single
+[`nfpm.yaml`](nfpm.yaml).
+
+The Linux packages build on native runners per architecture rather than
+cross-compiling — Fyne needs CGO, so a cross-build would have to carry a foreign
+C toolchain and X11 headers.
 
 Local builds:
 
 ```bash
 # Windows .exe (run on Windows, needs a C compiler for CGO/Fyne)
-make windows-amd64 VERSION=v0.1.0
+make windows-amd64 VERSION=v0.2.0
 
 # .deb / .rpm (run on Linux; needs nfpm and Fyne dev headers)
-make packages VERSION=0.1.0
+make packages VERSION=0.2.0
 ```
 
 Distro RPM specs live in [`packaging/`](packaging/) (Fedora and ALT Linux).
