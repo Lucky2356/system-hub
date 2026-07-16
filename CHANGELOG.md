@@ -78,13 +78,6 @@ The release that makes the app work on Windows, speak English, and run on ARM.
 
 ## [0.1.2]
 
-- Fixed the Windows installer asset name, which v0.1.1 published as
-  `system-hub--setup.exe`.
-
-## [0.1.1]
-
-- **Broken release**: the Windows installer was published with an empty version
-  in its file name. Use 0.1.2 or later.
 - A real Windows installer (Inno Setup) instead of a bare `.exe`: Start Menu
   shortcut and an uninstall entry.
 - Fixed console windows flashing constantly on Windows. The uptime lookup
@@ -96,6 +89,14 @@ The release that makes the app work on Windows, speak English, and run on ARM.
 - Fixed logging being silently disabled when `log_file` was empty: the path
   resolved to the config directory itself and every write failed with "is a
   directory".
+- Fixed the installer asset name: a missing version output published it as
+  `system-hub--setup.exe`. The workflow now fails instead of shipping an
+  unnamed installer.
+
+## [0.1.1] — withdrawn
+
+Published the Windows installer with an empty version in its file name, and was
+deleted. Its contents shipped in 0.1.2.
 
 ## [0.1.0]
 
