@@ -17,21 +17,6 @@ type ServiceInfo struct {
 	Description string
 }
 
-// Service states shared by both providers.
-const (
-	stateActive       = "active"
-	stateInactive     = "inactive"
-	stateFailed       = "failed"
-	stateActivating   = "activating"
-	stateDeactivating = "deactivating"
-
-	subRunning = "running"
-	subDead    = "dead"
-
-	loadLoaded   = "loaded"
-	loadDisabled = "disabled"
-)
-
 var servicesCache listCache[ServiceInfo]
 
 // ListServices returns the host's services. Results are cached for a short TTL

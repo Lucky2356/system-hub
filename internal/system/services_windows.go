@@ -16,6 +16,22 @@ import (
 // ServiceManagerName labels the service backend in the UI.
 const ServiceManagerName = "Службы Windows"
 
+// The systemd vocabulary the UI speaks. Only the Windows provider needs these
+// as constants: the Linux provider takes the words verbatim from systemctl's
+// own output.
+const (
+	stateActive       = "active"
+	stateInactive     = "inactive"
+	stateFailed       = "failed"
+	stateActivating   = "activating"
+	stateDeactivating = "deactivating"
+
+	subRunning = "running"
+	subDead    = "dead"
+
+	loadLoaded = "loaded"
+)
+
 func errUnsupportedAction(action string) error {
 	return fmt.Errorf("unsupported action: %s", action)
 }
