@@ -60,6 +60,9 @@ The release that makes the app work on Windows, speak English, and run on ARM.
 - Service and container states were never visible in list rows: a trailing label
   in a border layout's right slot renders past the visible row width. Both tabs
   now lead with the state badge.
+- The Settings tab did not scroll: at the default window size it cut off at the
+  auto-refresh checkboxes, leaving the theme, the language and both the Save and
+  Reset buttons unreachable.
 - The Docker tab opened in Containers mode while showing the image-only actions;
   the container buttons stayed hidden until the mode was toggled.
 - `BuildProblems` returned "No problems detected" *as a problem*, so a healthy
