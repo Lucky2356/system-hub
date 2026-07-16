@@ -258,5 +258,8 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		statusLabel,
 	)
 
-	return container.NewPadded(form)
+	// The form is taller than the default 900x550 window: without a scroll it
+	// cut off at the auto-refresh checkboxes, leaving the theme, the language
+	// and both buttons unreachable with no hint that anything was below.
+	return container.NewVScroll(container.NewPadded(form))
 }
