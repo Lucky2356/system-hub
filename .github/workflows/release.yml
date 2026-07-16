@@ -102,6 +102,7 @@ jobs:
             REF="${GITHUB_REF_NAME}"
           fi
           echo "tag=${REF}" >> "$GITHUB_OUTPUT"
+          echo "version=${REF#v}" >> "$GITHUB_OUTPUT"
 
       - name: Embed icon and version metadata
         shell: bash
@@ -126,6 +127,8 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
+          $ver = "${{ steps.ver.outputs.version }}"
+          if ([string]::IsNullOrWhiteSpace($ver)) { throw "version output is empty" }
           $iscc = Get-ChildItem "C:\Program Files*\Inno Setup*\ISCC.exe" -ErrorAction SilentlyContinue |
                   Select-Object -First 1 -ExpandProperty FullName
           if (-not $iscc) {
@@ -135,7 +138,7 @@ jobs:
           }
           if (-not $iscc) { throw "ISCC.exe not found" }
           Write-Host "Using $iscc"
-          & $iscc /DMyAppVersion=${{ steps.ver.outputs.version }} packaging\windows\system-hub.iss
+          & $iscc /DMyAppVersion=$ver packaging\windows\system-hub.iss
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
           Get-ChildItem dist
 
