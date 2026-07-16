@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
 	"strings"
 	"sync"
 	"time"
@@ -15,13 +14,12 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
-	title := widget.NewLabel("System Hub")
-	title.TextStyle = fyne.TextStyle{Bold: true}
-
+	// The app name lives in the window header; the tab only needs a caption.
 	subtitle := widget.NewLabel("Обзор системы: CPU / RAM / диск / сеть / сервисы / Docker")
 
 	cpuValueLabel := widget.NewLabel("CPU: ...")
@@ -70,20 +68,9 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	var lastProblems []string
 	
 	makeStatusText := func(status string) *canvas.Text {
-		text := canvas.NewText(status, color.NRGBA{R: 160, G: 160, B: 160, A: 255})
+		text := canvas.NewText(status, StatusColor(status))
 		text.TextSize = 12
-
-		switch strings.ToLower(strings.TrimSpace(status)) {
-		case "active", "running":
-			text.Color = color.NRGBA{R: 60, G: 180, B: 90, A: 255}
-		case "failed", "exited":
-			text.Color = color.NRGBA{R: 220, G: 70, B: 70, A: 255}
-		case "inactive", "dead", "unavailable", "недоступен":
-			text.Color = color.NRGBA{R: 180, G: 140, B: 50, A: 255}
-		default:
-			text.Color = color.NRGBA{R: 160, G: 160, B: 160, A: 255}
-		}
-
+		text.TextStyle = fyne.TextStyle{Bold: true}
 		return text
 	}
 
@@ -564,7 +551,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		})
 	}
 
-	refreshButton := widget.NewButton("Обновить", func() {
+	refreshButton := widget.NewButtonWithIcon("Обновить", theme.ViewRefreshIcon(), func() {
 		refreshButtonTapped()
 	})
 
@@ -675,28 +662,25 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		container.NewVBox(tempLabel, fanLabel, voltageLabel),
 	)
 
-	topRow := container.NewGridWithColumns(3, cpuCard, ramCard, diskCard)
-	middleRow := container.NewGridWithColumns(4, uptimeCard, servicesCard, dockerCard, networkCard)
-	bottomRow := container.NewGridWithColumns(4,
-		favoriteServicesCard,
-		favoriteContainersCard,
-		problemsCard,
-		tempCard,
+	// GridWithColumns sizes each row to its tallest card, so content cannot
+	// overlap its neighbours. The whole tab is inside a VScroll, which handles
+	// narrow windows.
+	metricsGrid := container.NewGridWithColumns(4, cpuCard, ramCard, diskCard, uptimeCard)
+	statusGrid := container.NewGridWithColumns(3, servicesCard, dockerCard, networkCard)
+	detailGrid := container.NewGridWithColumns(2,
+		problemsCard, tempCard,
+		favoriteServicesCard, favoriteContainersCard,
+		topProcessesCard, perCPUCard,
 	)
 
-	extraRow := container.NewGridWithColumns(2, topProcessesCard, perCPUCard)
-
 	content := container.NewVBox(
-		title,
 		subtitle,
 		widget.NewSeparator(),
-		topRow,
-		middleRow,
-		bottomRow,
-		extraRow,
+		metricsGrid,
+		statusGrid,
+		detailGrid,
 		widget.NewSeparator(),
-		refreshButton,
-		statusLabel,
+		container.NewHBox(refreshButton, statusLabel),
 	)
 
 	go refreshStats(true)

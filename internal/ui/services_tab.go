@@ -16,6 +16,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -55,15 +56,18 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	)
 	autoRefreshCheck.SetChecked(cfg.ServicesAutoRefresh)
 
-	detailsButton := widget.NewButton("Подробнее", nil)
-	openUnitButton := widget.NewButton("Юнит-файл", nil)
-	logsButton := widget.NewButton("Логи", nil)
-	startButton := widget.NewButton("Старт", nil)
-	stopButton := widget.NewButton("Стоп", nil)
-	restartButton := widget.NewButton("Рестарт", nil)
-	enableButton := widget.NewButton("Включить", nil)
-	disableButton := widget.NewButton("Отключить", nil)
-	favoriteButton := widget.NewButton("☆", nil)
+	detailsButton := widget.NewButtonWithIcon("Подробнее", theme.InfoIcon(), nil)
+	openUnitButton := widget.NewButtonWithIcon("Юнит-файл", theme.FileTextIcon(), nil)
+	logsButton := widget.NewButtonWithIcon("Логи", theme.DocumentIcon(), nil)
+	startButton := widget.NewButtonWithIcon("Старт", theme.MediaPlayIcon(), nil)
+	stopButton := widget.NewButtonWithIcon("Стоп", theme.MediaStopIcon(), nil)
+	restartButton := widget.NewButtonWithIcon("Рестарт", theme.ViewRefreshIcon(), nil)
+	enableButton := widget.NewButtonWithIcon("Включить", theme.ConfirmIcon(), nil)
+	disableButton := widget.NewButtonWithIcon("Отключить", theme.CancelIcon(), nil)
+	favoriteButton := widget.NewButtonWithIcon("", theme.RadioButtonIcon(), nil)
+
+	startButton.Importance = widget.HighImportance
+	stopButton.Importance = widget.DangerImportance
 
 	detailsButton.Disable()
 	openUnitButton.Disable()
@@ -90,9 +94,11 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 			svc := filteredServices[selectedIndex]
 			if isFavoriteService(svc.Name) {
-				favoriteButton.SetText("★")
+				favoriteButton.SetIcon(theme.RadioButtonCheckedIcon())
+				favoriteButton.SetText("В избранном")
 			} else {
-				favoriteButton.SetText("☆")
+				favoriteButton.SetIcon(theme.RadioButtonIcon())
+				favoriteButton.SetText("В избранное")
 			}
 			return
 		}
@@ -106,7 +112,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		enableButton.Disable()
 		disableButton.Disable()
 		favoriteButton.Disable()
-		favoriteButton.SetText("☆")
+		favoriteButton.SetIcon(theme.RadioButtonIcon())
+		favoriteButton.SetText("В избранное")
 	}
 
 	getSelectedService := func() (*system.ServiceInfo, bool) {
@@ -185,18 +192,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 			nameLabel.SetText(prefix + svc.Name)
 			stateText.Text = svc.ActiveState
-
-			switch svc.ActiveState {
-			case "active":
-				stateText.Color = color.RGBA{0, 200, 0, 255}
-			case "failed":
-				stateText.Color = color.RGBA{200, 0, 0, 255}
-			case "activating":
-				stateText.Color = color.RGBA{200, 200, 0, 255}
-			default:
-				stateText.Color = color.RGBA{150, 150, 150, 255}
-			}
-
+			stateText.Color = StatusColor(svc.ActiveState)
+			stateText.TextStyle = fyne.TextStyle{Bold: true}
 			stateText.Refresh()
 		},
 	)
@@ -480,22 +477,22 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		runServiceAction("disable")
 	}
 
-	refreshButton := widget.NewButton("Обновить", func() {
+	refreshButton := widget.NewButtonWithIcon("Обновить", theme.ViewRefreshIcon(), func() {
 		go refreshServices()
 	})
 
+	// Two rows: lifecycle actions the user reaches for most, then the
+	// inspection/bookkeeping actions. Eleven buttons on one line did not fit
+	// the default window width.
 	actionsRow := container.NewHBox(
-		refreshButton,
-		autoRefreshCheck,
-		favoriteButton,
-		detailsButton,
-		openUnitButton,
-		logsButton,
-		startButton,
-		stopButton,
-		restartButton,
-		enableButton,
-		disableButton,
+		startButton, stopButton, restartButton,
+		widget.NewSeparator(),
+		enableButton, disableButton,
+	)
+	secondaryRow := container.NewHBox(
+		favoriteButton, detailsButton, logsButton, openUnitButton,
+		widget.NewSeparator(),
+		refreshButton, autoRefreshCheck,
 	)
 
 	content := container.NewBorder(
@@ -504,9 +501,9 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 				title,
 				subtitle,
 				widget.NewSeparator(),
-				container.NewGridWithColumns(2, searchEntry, statusFilter),
-				sortSelect,
+				container.NewGridWithColumns(3, searchEntry, statusFilter, sortSelect),
 				actionsRow,
+				secondaryRow,
 				statusLabel,
 				widget.NewSeparator(),
 			),

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
@@ -14,7 +13,6 @@ import (
 	"github.com/Lucky2356/system-hub/internal/version"
 
 	"fyne.io/fyne/v2/app"
-	"fyne.io/fyne/v2/theme"
 )
 
 func main() {
@@ -31,17 +29,17 @@ func main() {
 		cfg = config.DefaultConfig()
 	}
 	appstate.SetConfig(cfg)
-	logPath, _ := config.ConfigFilePath()
-	logPath = filepath.Join(filepath.Dir(logPath), cfg.LogFile)
 
-	if err := logger.Init(logPath); err != nil {
+	if logPath, err := config.LogFilePath(cfg); err != nil {
+		log.Printf("warning: resolve log path: %v", err)
+	} else if err := logger.Init(logPath); err != nil {
 		log.Printf("warning: logger init: %v", err)
 	}
 
-	a := app.New()
-	if cfg.Theme == "light" {
-		a.Settings().SetTheme(theme.LightTheme())
-	}
+	// NewWithID (not New): the Preferences API Fyne uses internally requires a
+	// unique app ID, otherwise it logs an error at startup.
+	a := app.NewWithID(config.AppID)
+	ui.ApplyTheme(a, cfg.Theme)
 	w := ui.NewMainWindow(a, cfg)
 	w.ShowAndRun()
 }

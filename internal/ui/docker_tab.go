@@ -16,6 +16,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -59,16 +60,20 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	)
 	autoRefreshCheck.SetChecked(cfg.DockerAutoRefresh)
 
-	detailsButton := widget.NewButton("Подробнее", nil)
-	inspectButton := widget.NewButton("Инспекция", nil)
-	logsButton := widget.NewButton("Логи", nil)
-	startButton := widget.NewButton("Старт", nil)
-	stopButton := widget.NewButton("Стоп", nil)
-	restartButton := widget.NewButton("Рестарт", nil)
-	favoriteButton := widget.NewButton("☆", nil)
+	detailsButton := widget.NewButtonWithIcon("Подробнее", theme.InfoIcon(), nil)
+	inspectButton := widget.NewButtonWithIcon("Инспекция", theme.SearchIcon(), nil)
+	logsButton := widget.NewButtonWithIcon("Логи", theme.DocumentIcon(), nil)
+	startButton := widget.NewButtonWithIcon("Старт", theme.MediaPlayIcon(), nil)
+	stopButton := widget.NewButtonWithIcon("Стоп", theme.MediaStopIcon(), nil)
+	restartButton := widget.NewButtonWithIcon("Рестарт", theme.ViewRefreshIcon(), nil)
+	favoriteButton := widget.NewButtonWithIcon("", theme.RadioButtonIcon(), nil)
 
-	pullButton := widget.NewButton("Загрузить образ", nil)
-	removeImageButton := widget.NewButton("Удалить образ", nil)
+	startButton.Importance = widget.HighImportance
+	stopButton.Importance = widget.DangerImportance
+
+	pullButton := widget.NewButtonWithIcon("Загрузить образ", theme.DownloadIcon(), nil)
+	removeImageButton := widget.NewButtonWithIcon("Удалить образ", theme.DeleteIcon(), nil)
+	removeImageButton.Importance = widget.DangerImportance
 	removeImageButton.Disable()
 
 	hideContainerButtons := func() {
@@ -129,9 +134,11 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 			c := filteredContainers[selectedIndex]
 			if isFavoriteContainer(c.Names) {
-				favoriteButton.SetText("★")
+				favoriteButton.SetIcon(theme.RadioButtonCheckedIcon())
+				favoriteButton.SetText("В избранном")
 			} else {
-				favoriteButton.SetText("☆")
+				favoriteButton.SetIcon(theme.RadioButtonIcon())
+				favoriteButton.SetText("В избранное")
 			}
 			return
 		}
@@ -143,7 +150,8 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		stopButton.Disable()
 		restartButton.Disable()
 		favoriteButton.Disable()
-		favoriteButton.SetText("☆")
+		favoriteButton.SetIcon(theme.RadioButtonIcon())
+		favoriteButton.SetText("В избранное")
 	}
 
 	getSelectedContainer := func() (*system.DockerContainerInfo, bool) {
@@ -251,17 +259,8 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 				nameLabel.SetText(fmt.Sprintf("%s%s (%s)", prefix, c.Names, c.Image))
 				stateText.Text = c.State
-
-				switch strings.ToLower(c.State) {
-				case "running":
-					stateText.Color = color.RGBA{0, 200, 0, 255}
-				case "exited":
-					stateText.Color = color.RGBA{150, 150, 150, 255}
-				case "paused":
-					stateText.Color = color.RGBA{200, 200, 0, 255}
-				default:
-					stateText.Color = color.RGBA{200, 120, 0, 255}
-				}
+				stateText.Color = StatusColor(c.State)
+				stateText.TextStyle = fyne.TextStyle{Bold: true}
 			}
 
 			stateText.Refresh()

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -20,8 +21,30 @@ type PresetPath struct {
 	Path  string
 }
 
+// GetPresetPaths returns shortcuts for the file browser. The entries are
+// OS-specific: offering /etc/systemd on Windows only produced "not found".
 func GetPresetPaths() []PresetPath {
 	homeDir, _ := os.UserHomeDir()
+
+	if runtime.GOOS == "windows" {
+		paths := []PresetPath{
+			{Title: "Домашняя папка", Path: homeDir},
+		}
+		if appData := os.Getenv("APPDATA"); appData != "" {
+			paths = append(paths, PresetPath{Title: "AppData (Roaming)", Path: appData})
+		}
+		if programData := os.Getenv("ProgramData"); programData != "" {
+			paths = append(paths, PresetPath{Title: "ProgramData", Path: programData})
+		}
+		if sysRoot := os.Getenv("SystemRoot"); sysRoot != "" {
+			paths = append(paths,
+				PresetPath{Title: "Windows", Path: sysRoot},
+				PresetPath{Title: "hosts / drivers etc", Path: filepath.Join(sysRoot, "System32", "drivers", "etc")},
+				PresetPath{Title: "Логи (Windows\\Logs)", Path: filepath.Join(sysRoot, "Logs")},
+			)
+		}
+		return paths
+	}
 
 	return []PresetPath{
 		{Title: "Systemd units (/etc/systemd/system)", Path: "/etc/systemd/system"},
@@ -43,11 +66,12 @@ func sanitizePath(path string) (string, error) {
 		return "", fmt.Errorf("path contains NUL byte")
 	}
 
-	// Require absolute paths. All navigation in the app is rooted at an absolute
-	// preset path or the user's home, so this rejects ambiguous relative input
-	// (and any residual ".." traversal is collapsed by Clean below).
+	// Reject ambiguous relative input; any residual ".." is collapsed by Clean.
+	// A leading separator counts as rooted: filepath.IsAbs is false on Windows
+	// for Unix-style paths like "/etc/systemd/system", and rejecting those here
+	// popped an error dialog on startup instead of a plain "not found".
 	path = filepath.Clean(path)
-	if !filepath.IsAbs(path) {
+	if !filepath.IsAbs(path) && !strings.HasPrefix(path, string(filepath.Separator)) {
 		return "", fmt.Errorf("path must be absolute: %q", path)
 	}
 

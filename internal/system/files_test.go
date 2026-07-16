@@ -9,6 +9,13 @@ func TestSanitizePath(t *testing.T) {
 		t.Errorf("sanitizePath(%q) = %q, %v; want %q, nil", abs, got, err, abs)
 	}
 
+	// Unix-style rooted paths must be accepted on every OS: filepath.IsAbs is
+	// false for these on Windows, and rejecting them broke the file browser's
+	// preset paths there.
+	if _, err := sanitizePath("/etc/systemd/system"); err != nil {
+		t.Errorf("sanitizePath(%q) unexpected error: %v", "/etc/systemd/system", err)
+	}
+
 	if _, err := sanitizePath(""); err == nil {
 		t.Error("expected error for empty path")
 	}
@@ -17,6 +24,17 @@ func TestSanitizePath(t *testing.T) {
 	}
 	if _, err := sanitizePath("with\x00nul"); err == nil {
 		t.Error("expected error for NUL byte")
+	}
+}
+
+func TestGetPresetPathsAreRooted(t *testing.T) {
+	for _, p := range GetPresetPaths() {
+		if p.Path == "" {
+			continue // home dir may be unavailable in a sandbox
+		}
+		if _, err := sanitizePath(p.Path); err != nil {
+			t.Errorf("preset %q (%s) rejected by sanitizePath: %v", p.Title, p.Path, err)
+		}
 	}
 }
 

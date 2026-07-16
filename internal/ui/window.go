@@ -3,8 +3,9 @@ package ui
 import (
 	"log"
 
-	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/appstate"
+	"github.com/Lucky2356/system-hub/internal/config"
+	"github.com/Lucky2356/system-hub/internal/version"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -36,32 +37,35 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 	isDark := cfg.Theme != "light"
 
 	var themeBtn *widget.Button
+	applyThemeButton := func() {
+		if isDark {
+			themeBtn.SetIcon(theme.NewThemedResource(theme.RadioButtonCheckedIcon()))
+			themeBtn.SetText("Светлая")
+		} else {
+			themeBtn.SetIcon(theme.NewThemedResource(theme.RadioButtonIcon()))
+			themeBtn.SetText("Тёмная")
+		}
+	}
+
 	themeBtn = widget.NewButton("", func() {
 		isDark = !isDark
-		if isDark {
-			a.Settings().SetTheme(theme.DarkTheme())
-			themeBtn.SetText("☀")
-		} else {
-			a.Settings().SetTheme(theme.LightTheme())
-			themeBtn.SetText("🌙")
-		}
 
 		newCfg := appstate.GetConfig()
 		newCfg.Theme = "dark"
 		if !isDark {
 			newCfg.Theme = "light"
 		}
+
+		ApplyTheme(a, newCfg.Theme)
+		applyThemeButton()
 		appstate.SetConfig(newCfg)
 
 		if err := config.Save(newCfg); err != nil {
 			log.Printf("save theme config: %v", err)
 		}
 	})
-	if isDark {
-		themeBtn.SetText("☀")
-	} else {
-		themeBtn.SetText("🌙")
-	}
+	themeBtn.Importance = widget.LowImportance
+	applyThemeButton()
 
 	ctrlR := &desktop.CustomShortcut{KeyName: fyne.KeyR, Modifier: fyne.KeyModifierControl}
 	w.Canvas().AddShortcut(ctrlR, func(shortcut fyne.Shortcut) {
@@ -78,12 +82,22 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 		}
 	})
 
+	appTitle := widget.NewLabelWithStyle("System Hub", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	appVersion := widget.NewLabel(version.Version)
+	appVersion.Importance = widget.LowImportance
+
 	topBar := container.NewBorder(
-		nil, nil, nil, themeBtn,
-		container.NewHBox(),
+		nil, nil,
+		container.NewHBox(appTitle, appVersion),
+		themeBtn,
+		nil,
 	)
 
-	content := container.NewBorder(topBar, nil, nil, nil, tabs)
+	content := container.NewBorder(
+		container.NewVBox(container.NewPadded(topBar), widget.NewSeparator()),
+		nil, nil, nil,
+		tabs,
+	)
 	w.SetContent(content)
 
 	w.SetCloseIntercept(func() {

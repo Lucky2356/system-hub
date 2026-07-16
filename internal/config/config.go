@@ -6,11 +6,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
-	appDirName    = "system-hub"
-	configFileName = "config.json"
+	appDirName         = "system-hub"
+	configFileName     = "config.json"
+	defaultLogFileName = "system-hub.log"
+
+	// AppID must match the ID in cmd/system-hub/FyneApp.toml; Fyne's
+	// Preferences API refuses to work without a unique app ID.
+	AppID = "com.lucky2356.systemhub"
 )
 
 type Config struct {
@@ -34,7 +40,7 @@ func DefaultConfig() Config {
 	return Config{
 		RefreshIntervalSeconds: 2,
 		DefaultLogLines:        100,
-		LogFile: "system-hub.log",
+		LogFile:                defaultLogFileName,
 		DashboardAutoRefresh: true,
 		ServicesAutoRefresh:  false,
 		DockerAutoRefresh:    false,
@@ -53,6 +59,25 @@ func (c *Config) Normalize() {
 
 	if c.DefaultLogLines <= 0 {
 		c.DefaultLogLines = 100
+	}
+
+	// An empty LogFile made the caller join the config dir with "", yielding the
+	// directory itself, so opening the log failed with "is a directory" and
+	// logging was silently disabled.
+	if strings.TrimSpace(c.LogFile) == "" {
+		c.LogFile = defaultLogFileName
+	}
+
+	if c.Theme != "light" && c.Theme != "dark" {
+		c.Theme = "dark"
+	}
+
+	// Keep slices non-nil so they marshal as [] rather than null.
+	if c.FavoriteServices == nil {
+		c.FavoriteServices = []string{}
+	}
+	if c.FavoriteContainers == nil {
+		c.FavoriteContainers = []string{}
 	}
 }
 
@@ -113,6 +138,18 @@ func Save(cfg Config) error {
 
 func ConfigFilePath() (string, error) {
 	return configFilePath()
+}
+
+// LogFilePath resolves the log file next to the config file. It normalizes the
+// config first so an empty LogFile cannot resolve to the directory itself.
+func LogFilePath(cfg Config) (string, error) {
+	cfg.Normalize()
+
+	dir, err := configDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, cfg.LogFile), nil
 }
 
 func configFilePath() (string, error) {
