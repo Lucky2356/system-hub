@@ -31,6 +31,9 @@ Download from the [latest release](https://github.com/Lucky2356/system-hub/relea
 | Debian/Ubuntu | `system-hub_<version>_amd64.deb` | `sudo apt install ./system-hub_<version>_amd64.deb` |
 | Fedora/RHEL | `system-hub-<version>-1.x86_64.rpm` | `sudo dnf install ./system-hub-<version>-1.x86_64.rpm` |
 
+`arm64` / `aarch64` packages are published too (Raspberry Pi, ARM servers) —
+swap the architecture in the file name.
+
 A portable `system-hub.exe` is also attached if you prefer no installation.
 
 ## Requirements

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -66,6 +67,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	var filteredContainers []system.DockerContainerInfo
 	var allImages []system.DockerImageInfo
 	var filteredImages []system.DockerImageInfo
+	containerStats := map[string]system.DockerContainerStats{}
 	selectedIndex := -1
 	lastSelectedContainerName := ""
 
@@ -239,13 +241,15 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			return len(filteredContainers)
 		},
 		func() fyne.CanvasObject {
-			nameLabel := widget.NewLabel("")
-
-			stateLabel := widget.NewLabel("")
-			stateLabel.Alignment = fyne.TextAlignTrailing
+			// The badge leads the row, as on the Services tab: a trailing label
+			// in a border layout's right slot renders beyond the visible row
+			// width and is never seen.
+			stateLabel := widget.NewLabel(statePlaceholder)
 			stateLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-			return container.NewBorder(nil, nil, nil, stateLabel, nameLabel)
+			nameLabel := widget.NewLabel("")
+
+			return container.NewHBox(stateLabel, nameLabel)
 		},
 		func(id widget.ListItemID, obj fyne.CanvasObject) {
 			if id < 0 {
@@ -253,17 +257,17 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			}
 
 			row := obj.(*fyne.Container)
-			nameLabel := row.Objects[0].(*widget.Label)
-			stateLabel := row.Objects[1].(*widget.Label)
+			stateLabel := row.Objects[0].(*widget.Label)
+			nameLabel := row.Objects[1].(*widget.Label)
 
 			if isImagesMode() {
 				if id >= len(filteredImages) {
 					return
 				}
 				img := filteredImages[id]
-				nameLabel.SetText(fmt.Sprintf("%s:%s", img.Repository, img.Tag))
-				stateLabel.SetText(fmt.Sprintf("%s  %s", shortImageID(img.ID), img.Size))
+				stateLabel.SetText(padState(shortImageID(img.ID)))
 				stateLabel.Importance = widget.MediumImportance
+				nameLabel.SetText(fmt.Sprintf("%s:%s  (%s)", img.Repository, img.Tag, img.Size))
 			} else {
 				if id >= len(filteredContainers) {
 					return
@@ -275,9 +279,14 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 					prefix = "★ "
 				}
 
-				nameLabel.SetText(fmt.Sprintf("%s%s (%s)", prefix, c.Names, c.Image))
-				stateLabel.SetText(c.State)
+				stateLabel.SetText(padState(c.State))
 				stateLabel.Importance = StatusImportance(c.State)
+
+				text := fmt.Sprintf("%s%s (%s)", prefix, c.Names, c.Image)
+				if usage, ok := containerStats[c.Names]; ok {
+					text += fmt.Sprintf("   CPU %s   MEM %s", usage.CPUPercent, usage.MemPercent)
+				}
+				nameLabel.SetText(text)
 			}
 
 			stateLabel.Refresh()
@@ -356,8 +365,19 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			return
 		}
 
+		// Stats are a bonus, not a requirement: `docker stats` fails on hosts
+		// where `docker ps` works (rootless setups, an unreachable API), and the
+		// container list must still render there. An error here just means no
+		// usage columns.
+		stats, statsErr := system.DockerStatsByName()
+		if statsErr != nil {
+			log.Printf("docker stats unavailable: %v", statsErr)
+			stats = map[string]system.DockerContainerStats{}
+		}
+
 		fyne.Do(func() {
 			allContainers = containers
+			containerStats = stats
 			refreshList()
 		})
 	}

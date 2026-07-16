@@ -161,3 +161,97 @@ func TestRunCmdContextTimeoutIsForwarded(t *testing.T) {
 		t.Errorf("timeout = %v, want %v", (*calls)[0].timeout, defaultTimeout)
 	}
 }
+
+func TestListDockerContainerStatsBuildsArgv(t *testing.T) {
+	statsCache.invalidate()
+	calls := fakeRunner(t, []byte(`{"Name":"web","CPUPerc":"0.15%","MemUsage":"12.4MiB / 1.94GiB","MemPerc":"0.62%"}`), nil)
+
+	if _, err := ListDockerContainerStats(); err != nil {
+		t.Fatalf("ListDockerContainerStats: %v", err)
+	}
+
+	if len(*calls) != 1 {
+		t.Fatalf("expected 1 call, got %d", len(*calls))
+	}
+	// --no-stream is load-bearing: without it docker streams forever and the
+	// call never returns.
+	if !argvEquals((*calls)[0], "docker", "stats", "--no-stream", "--format", "{{json .}}") {
+		t.Errorf("argv = %s %v, want docker stats --no-stream --format {{json .}}",
+			(*calls)[0].name, (*calls)[0].args)
+	}
+}
+
+func TestParseDockerStats(t *testing.T) {
+	output := `{"Name":"web","CPUPerc":"0.15%","MemUsage":"12.4MiB / 1.94GiB","MemPerc":"0.62%"}
+{"Name":"db","CPUPerc":"1.20%","MemUsage":"48MiB / 1.94GiB","MemPerc":"2.41%"}`
+
+	stats, err := parseDockerStats(output)
+	if err != nil {
+		t.Fatalf("parseDockerStats: %v", err)
+	}
+	if len(stats) != 2 {
+		t.Fatalf("got %d stats, want 2", len(stats))
+	}
+
+	if stats[0].Name != "web" || stats[0].CPUPercent != "0.15%" || stats[0].MemPercent != "0.62%" {
+		t.Errorf("first entry = %+v", stats[0])
+	}
+	if stats[1].MemUsage != "48MiB / 1.94GiB" {
+		t.Errorf("MemUsage = %q", stats[1].MemUsage)
+	}
+}
+
+func TestParseDockerStatsHandlesNoRunningContainers(t *testing.T) {
+	// With nothing running docker prints only a newline; that is not an error,
+	// and it must not become a one-element slice of an empty container.
+	stats, err := parseDockerStats("\n")
+	if err != nil {
+		t.Fatalf("parseDockerStats: %v", err)
+	}
+	if len(stats) != 0 {
+		t.Errorf("got %d stats, want 0: %+v", len(stats), stats)
+	}
+}
+
+func TestParseDockerStatsRejectsGarbage(t *testing.T) {
+	if _, err := parseDockerStats("not json"); err == nil {
+		t.Error("expected an error for non-JSON output")
+	}
+}
+
+func TestDockerStatsByNameIndexesEntries(t *testing.T) {
+	statsCache.invalidate()
+	fakeRunner(t, []byte(`{"Name":"web","CPUPerc":"0.15%","MemUsage":"12.4MiB / 1.94GiB","MemPerc":"0.62%"}`), nil)
+
+	byName, err := DockerStatsByName()
+	if err != nil {
+		t.Fatalf("DockerStatsByName: %v", err)
+	}
+
+	got, ok := byName["web"]
+	if !ok {
+		t.Fatalf("no entry for web, got %v", byName)
+	}
+	if got.CPUPercent != "0.15%" {
+		t.Errorf("CPUPercent = %q, want 0.15%%", got.CPUPercent)
+	}
+}
+
+func TestInvalidateContainersCacheAlsoDropsStats(t *testing.T) {
+	statsCache.invalidate()
+	calls := fakeRunner(t, []byte(`{"Name":"web","CPUPerc":"0.15%","MemUsage":"1MiB / 2MiB","MemPerc":"0.5%"}`), nil)
+
+	if _, err := ListDockerContainerStats(); err != nil {
+		t.Fatalf("first call: %v", err)
+	}
+	// Stale stats after a start/stop would keep showing the usage of a
+	// container that is no longer running.
+	InvalidateContainersCache()
+	if _, err := ListDockerContainerStats(); err != nil {
+		t.Fatalf("second call: %v", err)
+	}
+
+	if len(*calls) != 2 {
+		t.Errorf("expected the invalidated cache to refetch, got %d calls", len(*calls))
+	}
+}

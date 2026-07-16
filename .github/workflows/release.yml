@@ -16,9 +16,22 @@ permissions:
 jobs:
   # ---------------------------------------------------------------------------
   # Linux: build a CGO binary, then produce .deb and .rpm via nfpm.
+  #
+  # Both architectures build natively rather than cross-compiling: Fyne needs
+  # CGO, so an arm64 cross-build would mean shipping a C toolchain and the X11
+  # headers for the foreign arch. The arm64 runner is free for public repos.
   # ---------------------------------------------------------------------------
   linux:
-    runs-on: ubuntu-latest
+    name: linux (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -63,16 +76,30 @@ jobs:
       - name: Build packages
         env:
           VERSION: ${{ steps.ver.outputs.version }}
-          GOARCH: amd64
+          GOARCH: ${{ matrix.arch }}
         run: |
           mkdir -p dist
           nfpm pkg --packager deb --target dist/
           nfpm pkg --packager rpm --target dist/
 
+      # A package built for the wrong architecture installs and then fails to
+      # run, so check what was actually produced rather than trusting the label
+      # in the file name.
+      - name: Verify package architecture
+        run: |
+          file system-hub
+          deb=$(ls dist/*.deb)
+          got=$(dpkg-deb --field "$deb" Architecture)
+          if [ "$got" != "${{ matrix.arch }}" ]; then
+            echo "::error::$deb reports Architecture=$got, expected ${{ matrix.arch }}"
+            exit 1
+          fi
+          echo "$deb: Architecture=$got"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-packages
+          name: linux-packages-${{ matrix.arch }}
           path: |
             system-hub
             dist/*.deb
@@ -167,7 +194,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/linux-packages/dist/*.deb
-            artifacts/linux-packages/dist/*.rpm
+            artifacts/linux-packages-*/dist/*.deb
+            artifacts/linux-packages-*/dist/*.rpm
             artifacts/windows-exe/dist/system-hub-*-setup.exe
             artifacts/windows-exe/build/system-hub.exe

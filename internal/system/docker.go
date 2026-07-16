@@ -23,6 +23,16 @@ type DockerImageInfo struct {
 	Size       string
 }
 
+// DockerContainerStats is the live resource usage of one running container.
+// Values are kept as docker formats them ("0.15%", "12.4MiB / 1.94GiB"): they
+// are shown as-is, and re-deriving them would only add rounding of our own.
+type DockerContainerStats struct {
+	Name       string
+	CPUPercent string
+	MemUsage   string
+	MemPercent string
+}
+
 var containersCache listCache[DockerContainerInfo]
 
 // ListDockerContainers returns all containers. Results are cached for a short
@@ -75,6 +85,82 @@ func ListDockerContainers() ([]DockerContainerInfo, error) {
 
 func InvalidateContainersCache() {
 	containersCache.invalidate()
+	statsCache.invalidate()
+}
+
+var statsCache listCache[DockerContainerStats]
+
+// ListDockerContainerStats returns live CPU and memory usage for the running
+// containers, keyed by container name.
+//
+// --no-stream is what makes this usable at all: without it docker streams
+// forever and the command never returns. Even so it samples for about a second
+// before printing, which is why it is not folded into ListDockerContainers --
+// callers that only need names and states must not pay for it.
+func ListDockerContainerStats() ([]DockerContainerStats, error) {
+	return statsCache.get(func() ([]DockerContainerStats, error) {
+		output, err := runCmd("docker", "stats", "--no-stream", "--format", "{{json .}}")
+		if err != nil {
+			return nil, fmt.Errorf("run docker stats: %w", err)
+		}
+		return parseDockerStats(string(output))
+	})
+}
+
+// DockerStatsByName indexes the stats by container name for row lookups.
+func DockerStatsByName() (map[string]DockerContainerStats, error) {
+	stats, err := ListDockerContainerStats()
+	if err != nil {
+		return nil, err
+	}
+
+	byName := make(map[string]DockerContainerStats, len(stats))
+	for _, s := range stats {
+		byName[s.Name] = s
+	}
+	return byName, nil
+}
+
+// parseDockerStats reads the JSON-per-line output of `docker stats`.
+func parseDockerStats(output string) ([]DockerContainerStats, error) {
+	rawText := strings.TrimSpace(output)
+	if rawText == "" {
+		return []DockerContainerStats{}, nil
+	}
+
+	var stats []DockerContainerStats
+
+	for _, line := range strings.Split(rawText, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		var raw struct {
+			Name     string
+			CPUPerc  string
+			MemUsage string
+			MemPerc  string
+		}
+
+		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+			return nil, fmt.Errorf("parse docker stats output: %w", err)
+		}
+
+		name := strings.TrimSpace(raw.Name)
+		if name == "" {
+			continue
+		}
+
+		stats = append(stats, DockerContainerStats{
+			Name:       name,
+			CPUPercent: strings.TrimSpace(raw.CPUPerc),
+			MemUsage:   strings.TrimSpace(raw.MemUsage),
+			MemPercent: strings.TrimSpace(raw.MemPerc),
+		})
+	}
+
+	return stats, nil
 }
 
 func ListDockerContainerNames() ([]string, error) {

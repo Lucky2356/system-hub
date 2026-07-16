@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `.deb` / `.rpm` packages for `arm64` alongside `amd64` (Raspberry Pi, ARM
+  servers). Both build natively — Fyne needs CGO, so cross-compiling would mean
+  shipping a foreign C toolchain and X11 headers.
+- Per-container CPU and memory usage on the Docker tab via
+  `docker stats --no-stream`. Hosts where `docker stats` fails but `docker ps`
+  works still list their containers, just without the usage columns.
 - History sparklines on the dashboard for CPU, RAM and network (~5 minutes,
   `internal/system/history.go`). Samples come from the light tick, which already
   has the numbers, so the charts cost no extra system calls. Network is plotted
@@ -42,6 +48,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - Docker tab opened in Containers mode but showed the image-only actions: the
   container buttons stayed hidden until the mode was toggled.
+- Docker list rows put the state in a border layout's right slot, which renders
+  past the visible row width — the same defect already fixed on the Services
+  tab. Both now lead with the badge.
 - Compilation error in `internal/ui/window.go` (self-referencing button variable).
 - Goroutine leak: dashboard auto-refresh now stops when the window closes.
 - Theme selection in Settings now applies dark theme without restart.
