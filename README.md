@@ -21,6 +21,18 @@ System Hub is a cross-platform GUI application for monitoring and managing Linux
 - **Report** — Generate diagnostics report and bundle with system stats, problems, top processes, activity
 - **Settings** — Configurable refresh interval, default log lines, per-tab auto-refresh toggles
 
+## Install
+
+Download from the [latest release](https://github.com/Lucky2356/system-hub/releases/latest):
+
+| Platform | File | Install |
+| --- | --- | --- |
+| Windows | `system-hub-<version>-setup.exe` | Run the installer (adds Start Menu shortcut and an uninstall entry) |
+| Debian/Ubuntu | `system-hub_<version>_amd64.deb` | `sudo apt install ./system-hub_<version>_amd64.deb` |
+| Fedora/RHEL | `system-hub-<version>-1.x86_64.rpm` | `sudo dnf install ./system-hub-<version>-1.x86_64.rpm` |
+
+A portable `system-hub.exe` is also attached if you prefer no installation.
+
 ## Requirements
 
 - Go 1.26+

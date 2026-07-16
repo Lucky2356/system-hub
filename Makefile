@@ -10,7 +10,7 @@ VERSION_PKG=github.com/Lucky2356/system-hub/internal/version.Version
 LDFLAGS=-s -w -X $(VERSION_PKG)=$(VERSION)
 
 .PHONY: all build clean test lint run install vendor \
-        linux-amd64 linux-arm64 windows-amd64 cross \
+        linux-amd64 linux-arm64 windows-amd64 windows-resources installer cross \
         package-deb package-rpm packages
 
 all: build
@@ -50,8 +50,20 @@ linux-arm64:
 	CGO_ENABLED=1 GOOS=linux GOARCH=arm64 $(GO) build -trimpath -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY)-linux-arm64 ./cmd/system-hub/
 
 # Build on Windows (native), or with CC=x86_64-w64-mingw32-gcc for cross builds.
-windows-amd64:
+windows-amd64: windows-resources
 	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 $(GO) build -trimpath -ldflags "$(LDFLAGS) -H=windowsgui" -o $(BUILD_DIR)/$(BINARY_WIN) ./cmd/system-hub/
+
+# Embed the app icon and version metadata into the Windows binary.
+windows-resources:
+	$(GO) run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest \
+		-o cmd/system-hub/resource.syso \
+		-product-version "$(patsubst v%,%,$(VERSION))" \
+		-file-version "$(patsubst v%,%,$(VERSION))" \
+		packaging/windows/versioninfo.json
+
+# Windows installer (requires Inno Setup: winget install JRSoftware.InnoSetup)
+installer: windows-amd64
+	iscc /DMyAppVersion=$(patsubst v%,%,$(VERSION)) packaging/windows/system-hub.iss
 
 cross: linux-amd64 linux-arm64 windows-amd64
 

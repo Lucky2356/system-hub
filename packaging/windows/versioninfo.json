@@ -1,0 +1,26 @@
+{
+  "FixedFileInfo": {
+    "FileVersion": { "Major": 0, "Minor": 1, "Patch": 0, "Build": 0 },
+    "ProductVersion": { "Major": 0, "Minor": 1, "Patch": 0, "Build": 0 },
+    "FileFlagsMask": "3f",
+    "FileFlags ": "00",
+    "FileOS": "040004",
+    "FileType": "01",
+    "FileSubType": "00"
+  },
+  "StringFileInfo": {
+    "CompanyName": "Lucky2356",
+    "FileDescription": "System Hub - system administration GUI",
+    "FileVersion": "0.1.0",
+    "InternalName": "system-hub",
+    "LegalCopyright": "Copyright (c) 2026 Lucky2356. MIT License.",
+    "OriginalFilename": "system-hub.exe",
+    "ProductName": "System Hub",
+    "ProductVersion": "0.1.0"
+  },
+  "VarFileInfo": {
+    "Translation": { "LangID": "0409", "CharsetID": "04B0" }
+  },
+  "IconPath": "packaging/windows/system-hub.ico",
+  "ManifestPath": ""
+}

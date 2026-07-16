@@ -103,20 +103,49 @@ jobs:
           fi
           echo "tag=${REF}" >> "$GITHUB_OUTPUT"
 
+      - name: Embed icon and version metadata
+        shell: bash
+        run: |
+          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+          "$(go env GOPATH)/bin/goversioninfo" \
+            -o cmd/system-hub/resource.syso \
+            -product-version "${{ steps.ver.outputs.version }}" \
+            -file-version "${{ steps.ver.outputs.version }}" \
+            packaging/windows/versioninfo.json
+
       - name: Build system-hub.exe
         shell: bash
         env:
           CGO_ENABLED: '1'
         run: |
+          mkdir -p build
           go build -trimpath \
             -ldflags "-s -w -H=windowsgui -X github.com/Lucky2356/system-hub/internal/version.Version=${{ steps.ver.outputs.tag }}" \
-            -o system-hub.exe ./cmd/system-hub
+            -o build/system-hub.exe ./cmd/system-hub
 
-      - name: Upload artifact
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = Get-ChildItem "C:\Program Files*\Inno Setup*\ISCC.exe" -ErrorAction SilentlyContinue |
+                  Select-Object -First 1 -ExpandProperty FullName
+          if (-not $iscc) {
+            choco install innosetup --no-progress -y
+            $iscc = Get-ChildItem "C:\Program Files*\Inno Setup*\ISCC.exe" -ErrorAction SilentlyContinue |
+                    Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $iscc) { throw "ISCC.exe not found" }
+          Write-Host "Using $iscc"
+          & $iscc /DMyAppVersion=${{ steps.ver.outputs.version }} packaging\windows\system-hub.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
+          Get-ChildItem dist
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-exe
-          path: system-hub.exe
+          path: |
+            build/system-hub.exe
+            dist/system-hub-*-setup.exe
 
   # ---------------------------------------------------------------------------
   # Attach everything to the GitHub Release (tag pushes only).
@@ -137,4 +166,5 @@ jobs:
           files: |
             artifacts/linux-packages/dist/*.deb
             artifacts/linux-packages/dist/*.rpm
-            artifacts/windows-exe/system-hub.exe
+            artifacts/windows-exe/dist/system-hub-*-setup.exe
+            artifacts/windows-exe/build/system-hub.exe
