@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
-	"github.com/Lucky2356/system-hub/internal/appstate"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -141,8 +141,6 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 					strings.Contains(lineLower, "warning")
 			case "инфо":
 				levelMatch = strings.Contains(lineLower, "info")
-			default:
-				levelMatch = true
 			}
 
 			queryMatch := query == "" || strings.Contains(lineLower, query)
@@ -445,14 +443,9 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 			return
 		}
 
-		if w := fyne.CurrentApp().Driver().AllWindows(); len(w) > 0 {
-			w[0].Clipboard().SetContent(text)
-			statusLabel.SetText("Статус: логи скопированы")
-			infoLabel.SetText("Скопировано: " + time.Now().Format("15:04:05"))
-			return
-		}
-
-		statusLabel.SetText("Статус: не удалось получить окно для clipboard")
+		fyne.CurrentApp().Clipboard().SetContent(text)
+		statusLabel.SetText("Статус: логи скопированы")
+		infoLabel.SetText("Скопировано: " + time.Now().Format("15:04:05"))
 	}
 
 	saveButton.OnTapped = func() {
@@ -480,9 +473,16 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 				statusLabel.SetText("Статус: сохранение отменено")
 				return
 			}
-			defer writer.Close()
-
 			if _, err := io.WriteString(writer, text); err != nil {
+				_ = writer.Close()
+				statusLabel.SetText("Статус: ошибка записи файла")
+				infoLabel.SetText(err.Error())
+				return
+			}
+
+			// Close reports flush errors: ignoring it can silently truncate the
+			// saved file.
+			if err := writer.Close(); err != nil {
 				statusLabel.SetText("Статус: ошибка записи файла")
 				infoLabel.SetText(err.Error())
 				return
@@ -547,7 +547,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	updateTargetState()
 	statusLabel.SetText("Статус: системные логи готовы")
 	infoLabel.SetText("Нажми «Обновить», чтобы загрузить логи")
-	
+
 	if cfg.LogsAutoRefresh {
 		autoRefreshCheck.OnChanged(true)
 	}

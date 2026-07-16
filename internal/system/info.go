@@ -215,10 +215,10 @@ func FormatUptime(seconds uint64) string {
 const availabilityTTL = 15 * time.Second
 
 type availabilityCache struct {
-	mu       sync.Mutex
-	value    bool
+	mu        sync.Mutex
+	value     bool
 	checkedAt time.Time
-	valid    bool
+	valid     bool
 }
 
 func (c *availabilityCache) get(check func() bool) bool {

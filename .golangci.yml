@@ -1,0 +1,32 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - bodyclose
+    - noctx
+
+  settings:
+    staticcheck:
+      checks:
+        - all
+        # The UI intentionally repeats short Russian/English literals in
+        # widget labels; deduplicating them into constants hurts readability.
+        - -ST1005
+
+  exclusions:
+    rules:
+      # Fyne callbacks routinely ignore errors from UI-only operations, and
+      # tests assert on values rather than every returned error.
+      - path: _test\.go
+        linters:
+          - errcheck
+
+formatters:
+  enable:
+    - gofmt

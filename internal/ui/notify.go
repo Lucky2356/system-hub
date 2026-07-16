@@ -14,7 +14,7 @@ func ShowError(parent fyne.Window, err error) {
 		return
 	}
 	if logger.Log != nil {
-	logger.Log.Println(err)
+		logger.Log.Println(err)
 	}
 
 	dialog.ShowError(err, parent)
@@ -23,4 +23,3 @@ func ShowError(parent fyne.Window, err error) {
 func ShowErrorMsg(parent fyne.Window, msg string) {
 	dialog.ShowError(fmt.Errorf("%s", msg), parent)
 }
-

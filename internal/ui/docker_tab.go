@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Lucky2356/system-hub/internal/activity"
 	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/system"
-	"github.com/Lucky2356/system-hub/internal/activity"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"

@@ -8,9 +8,9 @@ import (
 )
 
 type SensorInfo struct {
-	Name  string
-	Temp  float64
-	Unit  string
+	Name string
+	Temp float64
+	Unit string
 }
 
 type FanInfo struct {

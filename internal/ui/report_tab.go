@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Lucky2356/system-hub/internal/appstate"
@@ -14,6 +16,18 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
+
+// parseLogLines reads the user-entered log line count, falling back to the
+// default when the field is empty or not a positive number.
+func parseLogLines(text string) int {
+	const fallback = 100
+
+	n, err := strconv.Atoi(strings.TrimSpace(text))
+	if err != nil || n <= 0 {
+		return fallback
+	}
+	return n
+}
 
 func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 	title := widget.NewLabel("Диагностический отчёт")
@@ -32,11 +46,7 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 	buildReport := func() {
 		statusLabel.SetText("Статус: сбор отчёта...")
 
-		logLines := 100
-		fmt.Sscanf(linesEntry.Text, "%d", &logLines)
-		if logLines <= 0 {
-			logLines = 100
-		}
+		logLines := parseLogLines(linesEntry.Text)
 
 		go func() {
 			report, err := system.BuildDiagnosticsReport(system.DiagnosticsReportParams{
@@ -63,11 +73,7 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 	buildBundle := func() {
 		statusLabel.SetText("Статус: сбор диагностического пакета...")
 
-		logLines := 100
-		fmt.Sscanf(linesEntry.Text, "%d", &logLines)
-		if logLines <= 0 {
-			logLines = 100
-		}
+		logLines := parseLogLines(linesEntry.Text)
 
 		go func() {
 			report, err := system.BuildDiagnosticsBundle(system.DiagnosticsBundleParams{
@@ -109,11 +115,16 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 				statusLabel.SetText("Статус: сохранение отменено")
 				return
 			}
-			defer writer.Close()
-
-			_, writeErr := writer.Write([]byte(reportText))
-			if writeErr != nil {
+			if _, writeErr := writer.Write([]byte(reportText)); writeErr != nil {
+				_ = writer.Close()
 				ShowError(parent, writeErr)
+				statusLabel.SetText("Статус: ошибка записи файла")
+				return
+			}
+
+			// Close surfaces flush errors; ignoring it can truncate the report.
+			if err := writer.Close(); err != nil {
+				ShowError(parent, err)
 				statusLabel.SetText("Статус: ошибка записи файла")
 				return
 			}

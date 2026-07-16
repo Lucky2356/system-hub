@@ -1,7 +1,6 @@
 package ui
 
 import (
-
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"

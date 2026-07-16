@@ -6,7 +6,8 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// Универсальная карточка
+// NewStatCard builds the standard dashboard card: a title, a caption and a
+// padded content area.
 func NewStatCard(title string, subtitle string, content fyne.CanvasObject) *widget.Card {
 	return widget.NewCard(
 		title,

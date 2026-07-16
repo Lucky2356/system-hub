@@ -33,6 +33,15 @@ func resolveBinary(name string) (string, error) {
 	return path, nil
 }
 
+// commandRunner executes an external command. It exists so tests can observe
+// the exact argv a caller builds — the "--" separators and name validation that
+// guard against argument injection are only meaningful if they reach the
+// process, and that is not observable through the real exec path.
+type commandRunner func(ctx context.Context, timeout time.Duration, name string, args ...string) ([]byte, error)
+
+// runner is swapped in tests; production always uses execRunner.
+var runner commandRunner = execRunner
+
 func runCmd(name string, args ...string) ([]byte, error) {
 	return runCmdContext(context.Background(), defaultTimeout, name, args...)
 }
@@ -40,6 +49,10 @@ func runCmd(name string, args ...string) ([]byte, error) {
 // runCmdContext runs an external command with a bounded timeout. A timeout of 0
 // means no deadline (used for long-running operations such as `docker pull`).
 func runCmdContext(parent context.Context, timeout time.Duration, name string, args ...string) ([]byte, error) {
+	return runner(parent, timeout, name, args...)
+}
+
+func execRunner(parent context.Context, timeout time.Duration, name string, args ...string) ([]byte, error) {
 	binPath, err := resolveBinary(name)
 	if err != nil {
 		return nil, err

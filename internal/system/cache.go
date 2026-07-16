@@ -1,3 +1,5 @@
+// Package system talks to the host: metrics, services, containers, logs and
+// files. It must not import the ui package.
 package system
 
 import (

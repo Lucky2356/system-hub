@@ -1,3 +1,5 @@
+// Package ui builds the Fyne widgets and tabs. It depends on internal/system
+// for all host access; the dependency never points the other way.
 package ui
 
 import (

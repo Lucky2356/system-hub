@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/appstate"
+	"github.com/Lucky2356/system-hub/internal/config"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -163,23 +163,33 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 					if err != nil || writer == nil {
 						return
 					}
-					defer writer.Close()
-
 					cfgPath, err := config.ConfigFilePath()
 					if err != nil {
+						_ = writer.Close()
 						ShowError(parent, err)
 						return
 					}
 
 					data, err := os.ReadFile(cfgPath)
 					if err != nil {
+						_ = writer.Close()
 						ShowError(parent, err)
 						return
 					}
 
 					if _, err := writer.Write(data); err != nil {
+						_ = writer.Close()
 						ShowError(parent, err)
+						return
 					}
+
+					// Close reports flush errors, so an exported config cannot
+					// be silently truncated.
+					if err := writer.Close(); err != nil {
+						ShowError(parent, err)
+						return
+					}
+					statusLabel.SetText("Настройки экспортированы")
 				}, parent)
 			}),
 			widget.NewButton("Импорт конфигурации", func() {
@@ -187,7 +197,7 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 					if err != nil || reader == nil {
 						return
 					}
-					defer reader.Close()
+					defer func() { _ = reader.Close() }()
 
 					data, err := io.ReadAll(reader)
 					if err != nil {

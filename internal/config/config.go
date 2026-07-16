@@ -1,3 +1,4 @@
+// Package config loads, normalizes and persists the application settings.
 package config
 
 import (
@@ -20,9 +21,9 @@ const (
 )
 
 type Config struct {
-	RefreshIntervalSeconds int      `json:"refresh_interval_seconds"`
-	DefaultLogLines        int      `json:"default_log_lines"`
-	LogFile                string   `json:"log_file"`
+	RefreshIntervalSeconds int    `json:"refresh_interval_seconds"`
+	DefaultLogLines        int    `json:"default_log_lines"`
+	LogFile                string `json:"log_file"`
 
 	DashboardAutoRefresh bool `json:"dashboard_auto_refresh"`
 	ServicesAutoRefresh  bool `json:"services_auto_refresh"`
@@ -41,14 +42,14 @@ func DefaultConfig() Config {
 		RefreshIntervalSeconds: 2,
 		DefaultLogLines:        100,
 		LogFile:                defaultLogFileName,
-		DashboardAutoRefresh: true,
-		ServicesAutoRefresh:  false,
-		DockerAutoRefresh:    false,
-		LogsAutoRefresh:      false,
-		LogViewerAutoRefresh: false,
-		FavoriteServices:   []string{},
-		FavoriteContainers: []string{},
-		Theme:              "dark",
+		DashboardAutoRefresh:   true,
+		ServicesAutoRefresh:    false,
+		DockerAutoRefresh:      false,
+		LogsAutoRefresh:        false,
+		LogViewerAutoRefresh:   false,
+		FavoriteServices:       []string{},
+		FavoriteContainers:     []string{},
+		Theme:                  "dark",
 	}
 }
 

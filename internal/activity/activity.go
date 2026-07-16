@@ -1,3 +1,4 @@
+// Package activity records the service and container actions taken in the app.
 package activity
 
 import (
@@ -6,12 +7,12 @@ import (
 )
 
 type Entry struct {
-	Time     time.Time
-	Target   string
-	Action   string
-	Name     string
-	Status   string
-	Details  string
+	Time    time.Time
+	Target  string
+	Action  string
+	Name    string
+	Status  string
+	Details string
 }
 
 var (

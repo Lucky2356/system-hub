@@ -59,14 +59,13 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	voltageLabel := widget.NewLabel("")
 	voltageLabel.Wrapping = fyne.TextWrapWord
 
-
 	problemsLabel.Wrapping = fyne.TextWrapWord
 	topProcessesLabel.Wrapping = fyne.TextWrapWord
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
 
 	var lastProblems []string
-	
+
 	makeStatusText := func(status string) *canvas.Text {
 		text := canvas.NewText(status, StatusColor(status))
 		text.TextSize = 12
@@ -74,10 +73,10 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		return text
 	}
 
+	// refreshStats is assigned below; the closures here capture it by reference.
 	var refreshStats func(heavy bool)
-	var refreshButtonTapped func()
 
-	refreshButtonTapped = func() {
+	refreshButtonTapped := func() {
 		go refreshStats(true)
 	}
 

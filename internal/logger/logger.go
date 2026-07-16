@@ -1,3 +1,4 @@
+// Package logger writes application diagnostics to a file next to the config.
 package logger
 
 import (

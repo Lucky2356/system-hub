@@ -1,3 +1,4 @@
+// Package appstate holds the live application config shared across tabs.
 package appstate
 
 import (
@@ -22,5 +23,3 @@ func SetConfig(cfg config.Config) {
 	defer mu.Unlock()
 	Config = cfg
 }
-
-

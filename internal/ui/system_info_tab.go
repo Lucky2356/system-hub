@@ -57,7 +57,7 @@ func NewSystemInfoTab(w fyne.Window) fyne.CanvasObject {
 	})
 
 	copyBtn := widget.NewButton("Копировать", func() {
-		w.Clipboard().SetContent(lastInfo.ToMultilineString())
+		fyne.CurrentApp().Clipboard().SetContent(lastInfo.ToMultilineString())
 		statusLabel.SetText("Скопировано в буфер обмена")
 	})
 
