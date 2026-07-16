@@ -109,6 +109,7 @@ internal/
   logger/             — File-based logger
   system/             — System interaction (gopsutil, CLI tools)
     info.go           — CPU, RAM, disk, uptime, network, per-CPU
+    history.go        — Ring buffer of recent samples for the dashboard charts
     processes.go      — Ports, top processes, kill
     services.go       — systemd service management
     docker.go         — Docker containers, images

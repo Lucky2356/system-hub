@@ -51,6 +51,14 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	recvLabel := widget.NewLabel("RX: ...")
 	sentLabel := widget.NewLabel("TX: ...")
 
+	// CPU and RAM are percentages, so they are pinned to a 0-100 scale: a flat
+	// 5% load must look flat. Network has no ceiling, so it scales to its own
+	// peak.
+	cpuChart := newSparkline(AccentColor, 100)
+	ramChart := newSparkline(SuccessColor, 100)
+	netRecvChart := newSparkline(AccentColor, 0)
+	netSentChart := newSparkline(WarningColor, 0)
+
 	perCPUBars := container.NewVBox(widget.NewLabel(i18n.T("Loading per-core data...")))
 
 	tempLabel := widget.NewLabel(i18n.T("Loading temperatures..."))
@@ -369,6 +377,12 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	var coreRows []coreRow
 
 	updateUI := func(stats system.Stats, heavy bool) {
+		// Recorded on every tick, including the light one: the numbers are
+		// already in hand, so history costs no extra system calls.
+		system.RecordSample(stats)
+		samples := system.MetricHistory()
+		updateCharts(samples, cpuChart, ramChart, netRecvChart, netSentChart)
+
 		cpuValueLabel.SetText(fmt.Sprintf("CPU: %.1f%%", stats.CPUPercent))
 		cpuBar.SetValue(stats.CPUPercent / 100)
 
@@ -391,8 +405,12 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		}
 		perCPUBars.Refresh()
 
-		recvLabel.SetText(fmt.Sprintf("RX: %s", system.FormatBytes(stats.NetRecv)))
-		sentLabel.SetText(fmt.Sprintf("TX: %s", system.FormatBytes(stats.NetSent)))
+		// The totals alone would not explain the chart below them, which plots a
+		// rate; showing both makes the pairing legible.
+		recvLabel.SetText(fmt.Sprintf("RX: %s  (%s)",
+			system.FormatBytes(stats.NetRecv), formatRate(latestRecvRate(samples))))
+		sentLabel.SetText(fmt.Sprintf("TX: %s  (%s)",
+			system.FormatBytes(stats.NetSent), formatRate(latestSentRate(samples))))
 
 		// Sensor readings spawn `sensors`/`nvidia-smi`; refresh them only on
 		// the heavy tick (they are also carried on stats only when heavy).
@@ -548,6 +566,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		container.NewVBox(
 			cpuValueLabel,
 			cpuBar,
+			cpuChart.object(),
 		),
 	)
 
@@ -558,6 +577,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 			ramValueLabel,
 			ramBar,
 			ramDetailsLabel,
+			ramChart.object(),
 		),
 	)
 
@@ -631,7 +651,9 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		i18n.T("Data sent / received"),
 		container.NewVBox(
 			recvLabel,
+			netRecvChart.object(),
 			sentLabel,
+			netSentChart.object(),
 		),
 	)
 
@@ -697,6 +719,51 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	// Wrap in a vertical scroll so the dashboard grid does not clip on small
 	// windows.
 	return container.NewVScroll(container.NewPadded(content))
+}
+
+// latestRecvRate and latestSentRate read the most recent network rate, or 0
+// before there are two samples to derive one from.
+func latestRecvRate(samples []system.Sample) float64 {
+	if len(samples) == 0 {
+		return 0
+	}
+	return samples[len(samples)-1].NetRecvPerSec
+}
+
+func latestSentRate(samples []system.Sample) float64 {
+	if len(samples) == 0 {
+		return 0
+	}
+	return samples[len(samples)-1].NetSentPerSec
+}
+
+// formatRate renders a bytes-per-second value using the same units as the
+// totals beside it.
+func formatRate(bytesPerSec float64) string {
+	if bytesPerSec < 0 {
+		bytesPerSec = 0
+	}
+	return system.FormatBytes(uint64(bytesPerSec)) + "/s"
+}
+
+// updateCharts feeds one history snapshot into the dashboard's sparklines.
+func updateCharts(samples []system.Sample, cpu, ram, netRecv, netSent *sparkline) {
+	cpuValues := make([]float64, len(samples))
+	ramValues := make([]float64, len(samples))
+	recvValues := make([]float64, len(samples))
+	sentValues := make([]float64, len(samples))
+
+	for i, s := range samples {
+		cpuValues[i] = s.CPUPercent
+		ramValues[i] = s.RAMPercent
+		recvValues[i] = s.NetRecvPerSec
+		sentValues[i] = s.NetSentPerSec
+	}
+
+	cpu.setValues(cpuValues)
+	ram.setValues(ramValues)
+	netRecv.setValues(recvValues)
+	netSent.setValues(sentValues)
 }
 
 func joinLines(items []string) string {

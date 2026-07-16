@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- History sparklines on the dashboard for CPU, RAM and network (~5 minutes,
+  `internal/system/history.go`). Samples come from the light tick, which already
+  has the numbers, so the charts cost no extra system calls. Network is plotted
+  as a rate, since the raw counters are monotonic totals since boot; the RX/TX
+  labels now show that rate next to the total.
 - English interface alongside Russian (`internal/i18n`), with a switcher in
   Settings that applies without a restart. `language` config option accepts
   `ru` (default), `en` or `auto` (follow the OS locale). Configs written before
