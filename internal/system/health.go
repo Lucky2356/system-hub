@@ -35,10 +35,9 @@ func BuildProblems(stats Stats, favoriteServices []string, favoriteContainers []
 		problems = append(problems, containerProblems...)
 	}
 
-	if len(problems) == 0 {
-		return []string{"No problems detected"}
-	}
-
+	// An empty slice means "healthy". Returning a human-readable sentinel here
+	// used to make callers treat "no problems" as a problem — the dashboard
+	// even raised a desktop notification announcing it.
 	return problems
 }
 

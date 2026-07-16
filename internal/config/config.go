@@ -14,6 +14,7 @@ const (
 	appDirName         = "system-hub"
 	configFileName     = "config.json"
 	defaultLogFileName = "system-hub.log"
+	activityFileName   = "activity.jsonl"
 
 	// AppID must match the ID in cmd/system-hub/FyneApp.toml; Fyne's
 	// Preferences API refuses to work without a unique app ID.
@@ -151,6 +152,15 @@ func LogFilePath(cfg Config) (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, cfg.LogFile), nil
+}
+
+// ActivityFilePath resolves the persisted activity log next to the config.
+func ActivityFilePath() (string, error) {
+	dir, err := configDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, activityFileName), nil
 }
 
 func configFilePath() (string, error) {

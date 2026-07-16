@@ -64,8 +64,6 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 
 	statusLabel := widget.NewLabel("Статус: ожидание")
 
-	var lastProblems []string
-
 	makeStatusText := func(status string) *canvas.Text {
 		text := canvas.NewText(status, StatusColor(status))
 		text.TextSize = 12
@@ -496,24 +494,13 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 			appstate.GetConfig().FavoriteServices,
 			appstate.GetConfig().FavoriteContainers,
 		)
-		problemsLabel.SetText(joinLines(problems))
-
-		for _, p := range problems {
-			found := false
-			for _, old := range lastProblems {
-				if old == p {
-					found = true
-					break
-				}
-			}
-			if !found {
-				fyne.CurrentApp().SendNotification(&fyne.Notification{
-					Title:   "System Hub: предупреждение",
-					Content: p,
-				})
-			}
+		if len(problems) == 0 {
+			problemsLabel.SetText("Проблем не обнаружено")
+		} else {
+			problemsLabel.SetText(joinLines(problems))
 		}
-		lastProblems = problems
+
+		notifyProblems(problems)
 		topProcesses, err := system.ListTopProcesses(5)
 		if err != nil {
 			topProcessesLabel.SetText("Не удалось загрузить список процессов")

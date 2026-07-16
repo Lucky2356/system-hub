@@ -120,6 +120,9 @@ func buildProblemsSection(stats Stats, favoriteServices []string, favoriteContai
 		"Problems",
 		strings.Repeat("-", 72),
 	}
+	if len(problems) == 0 {
+		lines = append(lines, "- none")
+	}
 	for _, p := range problems {
 		lines = append(lines, "- "+p)
 	}

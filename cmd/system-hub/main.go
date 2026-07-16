@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/Lucky2356/system-hub/internal/activity"
 	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
 	"github.com/Lucky2356/system-hub/internal/logger"
@@ -34,6 +35,14 @@ func main() {
 		log.Printf("warning: resolve log path: %v", err)
 	} else if err := logger.Init(logPath); err != nil {
 		log.Printf("warning: logger init: %v", err)
+	}
+
+	// The activity log survives restarts; failing to load it must not stop the
+	// app from managing services.
+	if activityPath, err := config.ActivityFilePath(); err != nil {
+		log.Printf("warning: resolve activity path: %v", err)
+	} else if err := activity.Init(activityPath); err != nil {
+		log.Printf("warning: activity log init: %v", err)
 	}
 
 	// NewWithID (not New): the Preferences API Fyne uses internally requires a
