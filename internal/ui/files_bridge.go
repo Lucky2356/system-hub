@@ -1,8 +1,10 @@
 package ui
 
 import (
-	"fmt"
+	"errors"
 	"sync"
+
+	"github.com/Lucky2356/system-hub/internal/i18n"
 )
 
 var (
@@ -22,7 +24,7 @@ func OpenFileInFiles(path string) error {
 	filesOpenMu.RUnlock()
 
 	if fn == nil {
-		return fmt.Errorf("вкладка «Файлы» ещё не готова")
+		return errors.New(i18n.T("The «Files» tab is not ready yet"))
 	}
 
 	return fn(path)

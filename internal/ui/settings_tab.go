@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"fmt"
+	"errors"
 	"io"
 	"os"
 	"strconv"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
+	"github.com/Lucky2356/system-hub/internal/i18n"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -23,19 +24,19 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	defaultLogLinesEntry := widget.NewEntry()
 	defaultLogLinesEntry.SetText(strconv.Itoa(cfg.DefaultLogLines))
 
-	dashboardAutoRefreshCheck := widget.NewCheck("Автообновление дашборда", nil)
+	dashboardAutoRefreshCheck := widget.NewCheck(i18n.T("Auto-refresh the dashboard"), nil)
 	dashboardAutoRefreshCheck.SetChecked(cfg.DashboardAutoRefresh)
 
-	servicesAutoRefreshCheck := widget.NewCheck("Автообновление сервисов", nil)
+	servicesAutoRefreshCheck := widget.NewCheck(i18n.T("Auto-refresh services"), nil)
 	servicesAutoRefreshCheck.SetChecked(cfg.ServicesAutoRefresh)
 
-	dockerAutoRefreshCheck := widget.NewCheck("Автообновление Docker", nil)
+	dockerAutoRefreshCheck := widget.NewCheck(i18n.T("Auto-refresh Docker"), nil)
 	dockerAutoRefreshCheck.SetChecked(cfg.DockerAutoRefresh)
 
-	logsAutoRefreshCheck := widget.NewCheck("Автообновление вкладки логов", nil)
+	logsAutoRefreshCheck := widget.NewCheck(i18n.T("Auto-refresh the logs tab"), nil)
 	logsAutoRefreshCheck.SetChecked(cfg.LogsAutoRefresh)
 
-	logViewerAutoRefreshCheck := widget.NewCheck("Автообновление окна логов", nil)
+	logViewerAutoRefreshCheck := widget.NewCheck(i18n.T("Auto-refresh the log window"), nil)
 	logViewerAutoRefreshCheck.SetChecked(cfg.LogViewerAutoRefresh)
 
 	themeSelect := widget.NewSelect([]string{"dark", "light"}, nil)
@@ -44,23 +45,40 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		themeSelect.SetSelected("dark")
 	}
 
-	configPath, err := config.ConfigFilePath()
-	if err != nil {
-		configPath = "недоступно"
+	// The language Select shows human names but stores the config codes, so the
+	// selection survives a language switch.
+	languageLabels := map[string]string{
+		i18n.Auto:    i18n.T("System language"),
+		i18n.Russian: "Русский",
+		i18n.English: "English",
+	}
+	languageCodes := map[string]string{}
+	languageOptions := make([]string, 0, len(languageLabels))
+	for _, code := range []string{i18n.Auto, i18n.Russian, i18n.English} {
+		languageOptions = append(languageOptions, languageLabels[code])
+		languageCodes[languageLabels[code]] = code
 	}
 
-	statusLabel := widget.NewLabel("Измените настройки и нажмите «Сохранить настройки»")
+	languageSelect := widget.NewSelect(languageOptions, nil)
+	languageSelect.SetSelected(languageLabels[cfg.Language])
 
-	saveButton := widget.NewButton("Сохранить настройки", func() {
+	configPath, err := config.ConfigFilePath()
+	if err != nil {
+		configPath = i18n.T("unavailable")
+	}
+
+	statusLabel := widget.NewLabel(i18n.T("Change the settings and press «Save settings»"))
+
+	saveButton := widget.NewButton(i18n.T("Save settings"), func() {
 		refreshInterval, err := strconv.Atoi(strings.TrimSpace(refreshIntervalEntry.Text))
 		if err != nil || refreshInterval <= 0 {
-			dialog.ShowError(fmt.Errorf("интервал обновления должен быть положительным числом"), parent)
+			dialog.ShowError(errors.New(i18n.T("the refresh interval must be a positive number")), parent)
 			return
 		}
 
 		defaultLogLines, err := strconv.Atoi(strings.TrimSpace(defaultLogLinesEntry.Text))
 		if err != nil || defaultLogLines <= 0 {
-			dialog.ShowError(fmt.Errorf("количество строк логов должно быть положительным числом"), parent)
+			dialog.ShowError(errors.New(i18n.T("the log line count must be a positive number")), parent)
 			return
 		}
 
@@ -83,26 +101,31 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			FavoriteServices:   cfg.FavoriteServices,
 			FavoriteContainers: cfg.FavoriteContainers,
 			Theme:              appTheme,
+			Language:           languageCodes[languageSelect.Selected],
 		}
 
 		if err := config.Save(newCfg); err != nil {
 			dialog.ShowError(err, parent)
-			statusLabel.SetText("Ошибка сохранения: " + err.Error())
+			statusLabel.SetText(i18n.Tf("Save error: %s", err.Error()))
 			return
 		}
 		appstate.SetConfig(newCfg)
 
 		ApplyTheme(fyne.CurrentApp(), newCfg.Theme)
 
-		statusLabel.SetText("Настройки сохранены")
+		statusLabel.SetText(i18n.T("Settings saved"))
 		dialog.ShowInformation(
-			"Настройки сохранены",
-			"Настройки сохранены.\n\nНекоторые изменения полностью применятся после перезапуска приложения.",
+			i18n.T("Settings saved"),
+			i18n.T("Settings saved.\n\nSome changes take full effect after restarting the application."),
 			parent,
 		)
+
+		// Applied last: on a language change this rebuilds the window, which
+		// replaces the widgets the lines above are still touching.
+		i18n.SetLanguage(newCfg.Language)
 	})
 
-	resetButton := widget.NewButton("Сбросить настройки", func() {
+	resetButton := widget.NewButton(i18n.T("Reset settings"), func() {
 		defaultCfg := config.DefaultConfig()
 
 		refreshIntervalEntry.SetText(strconv.Itoa(defaultCfg.RefreshIntervalSeconds))
@@ -118,18 +141,19 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		if defaultCfg.Theme == "" {
 			themeSelect.SetSelected("dark")
 		}
-		statusLabel.SetText("Значения сброшены по умолчанию")
+		languageSelect.SetSelected(languageLabels[defaultCfg.Language])
+		statusLabel.SetText(i18n.T("Values reset to defaults"))
 	})
 
 	form := container.NewVBox(
-		widget.NewLabelWithStyle("Настройки", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabel("Конфигурация приложения"),
+		widget.NewLabelWithStyle(i18n.T("Settings"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabel(i18n.T("Application configuration")),
 		widget.NewSeparator(),
 
-		widget.NewLabel("Интервал обновления (сек)"),
+		widget.NewLabel(i18n.T("Refresh interval (s)")),
 		refreshIntervalEntry,
 
-		widget.NewLabel("Строк логов по умолчанию"),
+		widget.NewLabel(i18n.T("Default log lines")),
 		defaultLogLinesEntry,
 
 		widget.NewSeparator(),
@@ -142,12 +166,15 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 		widget.NewSeparator(),
 
-		widget.NewLabel("Тема"),
+		widget.NewLabel(i18n.T("Theme")),
 		themeSelect,
+
+		widget.NewLabel(i18n.T("Language")),
+		languageSelect,
 
 		widget.NewSeparator(),
 
-		widget.NewLabel("Файл конфигурации"),
+		widget.NewLabel(i18n.T("Configuration file")),
 		widget.NewLabel(configPath),
 
 		widget.NewSeparator(),
@@ -158,7 +185,7 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		),
 
 		container.NewHBox(
-			widget.NewButton("Экспорт конфигурации", func() {
+			widget.NewButton(i18n.T("Export configuration"), func() {
 				dialog.ShowFileSave(func(writer fyne.URIWriteCloser, err error) {
 					if err != nil || writer == nil {
 						return
@@ -189,10 +216,10 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 						ShowError(parent, err)
 						return
 					}
-					statusLabel.SetText("Настройки экспортированы")
+					statusLabel.SetText(i18n.T("Settings exported"))
 				}, parent)
 			}),
-			widget.NewButton("Импорт конфигурации", func() {
+			widget.NewButton(i18n.T("Import configuration"), func() {
 				dialog.ShowFileOpen(func(reader fyne.URIReadCloser, err error) {
 					if err != nil || reader == nil {
 						return
@@ -223,7 +250,7 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 					}
 
 					appstate.SetConfig(loaded)
-					statusLabel.SetText("Настройки импортированы. Перезапустите приложение.")
+					statusLabel.SetText(i18n.T("Settings imported. Restart the application."))
 				}, parent)
 			}),
 		),

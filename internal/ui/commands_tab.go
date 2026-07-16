@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/Lucky2356/system-hub/internal/i18n"
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
@@ -9,10 +10,10 @@ import (
 )
 
 func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabel("Команды")
+	title := widget.NewLabel(i18n.T("Commands"))
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("Безопасный запуск read-only команд для диагностики")
+	subtitle := widget.NewLabel(i18n.T("Safely run read-only diagnostic commands"))
 
 	commands := system.GetSafeCommands()
 	commandMap := make(map[string]system.SafeCommand, len(commands))
@@ -32,9 +33,9 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 	descriptionLabel.Wrapping = fyne.TextWrapWord
 
 	argEntry := widget.NewEntry()
-	argEntry.SetPlaceHolder("Аргумент")
+	argEntry.SetPlaceHolder(i18n.T("Argument"))
 
-	statusLabel := widget.NewLabel("Статус: ожидание")
+	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
 
 	outputEntry := widget.NewMultiLineEntry()
 	outputEntry.Wrapping = fyne.TextWrapWord
@@ -44,7 +45,7 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 		selectedTitle := commandSelect.Selected
 		cmd, ok := commandMap[selectedTitle]
 		if !ok {
-			descriptionLabel.SetText("Команда не выбрана")
+			descriptionLabel.SetText(i18n.T("No command selected"))
 			argEntry.Hide()
 			return
 		}
@@ -56,7 +57,7 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 			if cmd.ArgHint != "" {
 				argEntry.SetPlaceHolder(cmd.ArgHint)
 			} else {
-				argEntry.SetPlaceHolder("Введите аргумент")
+				argEntry.SetPlaceHolder(i18n.T("Enter an argument"))
 			}
 		} else {
 			argEntry.SetText("")
@@ -68,11 +69,11 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 		selectedTitle := commandSelect.Selected
 		cmd, ok := commandMap[selectedTitle]
 		if !ok {
-			statusLabel.SetText("Статус: команда не выбрана")
+			statusLabel.SetText(i18n.T("Status: no command selected"))
 			return
 		}
 
-		statusLabel.SetText("Статус: выполнение команды...")
+		statusLabel.SetText(i18n.T("Status: running the command..."))
 		outputEntry.SetText("")
 
 		go func() {
@@ -82,12 +83,12 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 				if err != nil {
 					outputEntry.SetText(result)
 					ShowError(parent, err)
-					statusLabel.SetText("Статус: команда завершилась с ошибкой")
+					statusLabel.SetText(i18n.T("Status: the command failed"))
 					return
 				}
 
 				outputEntry.SetText(result)
-				statusLabel.SetText("Статус: команда выполнена")
+				statusLabel.SetText(i18n.T("Status: command completed"))
 			})
 		}()
 	}
@@ -96,10 +97,10 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 		updateSelectedCommandUI()
 	}
 
-	runButton := widget.NewButton("Выполнить", runCommand)
-	clearButton := widget.NewButton("Очистить", func() {
+	runButton := widget.NewButton(i18n.T("Run"), runCommand)
+	clearButton := widget.NewButton(i18n.T("Clear"), func() {
 		outputEntry.SetText("")
-		statusLabel.SetText("Статус: очищено")
+		statusLabel.SetText(i18n.T("Status: cleared"))
 	})
 
 	content := container.NewBorder(
@@ -107,7 +108,7 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 			title,
 			subtitle,
 			widget.NewSeparator(),
-			widget.NewLabel("Команда"),
+			widget.NewLabel(i18n.T("Command")),
 			commandSelect,
 			descriptionLabel,
 			argEntry,

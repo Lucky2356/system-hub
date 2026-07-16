@@ -5,6 +5,7 @@ import (
 
 	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
+	"github.com/Lucky2356/system-hub/internal/i18n"
 	"github.com/Lucky2356/system-hub/internal/version"
 
 	"fyne.io/fyne/v2"
@@ -14,22 +15,53 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// tabKeys names the tabs in the order they are built. The names are also the
+// keys the refresh registry uses, so they must stay stable across languages —
+// only the labels are translated.
+var tabKeys = []string{
+	"Dashboard", "Services", "Docker", "Processes",
+	"Files", "Commands", "System Info", "Logs",
+	"Activity", "Report", "Settings",
+}
+
 func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 	w := a.NewWindow("System Hub")
 	w.Resize(fyne.NewSize(900, 550))
 
+	w.SetContent(buildWindowContent(a, w, cfg))
+
+	// Switching the language rebuilds the whole content tree: widget labels are
+	// set at construction time, so there is nothing to re-translate in place.
+	// RunClosers stops the tickers the old tree owned, otherwise every switch
+	// would leak a set of them.
+	i18n.OnChange(func() {
+		fyne.Do(func() {
+			RunClosers()
+			w.SetContent(buildWindowContent(a, w, appstate.GetConfig()))
+		})
+	})
+
+	w.SetCloseIntercept(func() {
+		RunClosers()
+		w.Close()
+	})
+
+	return w
+}
+
+func buildWindowContent(a fyne.App, w fyne.Window, cfg config.Config) fyne.CanvasObject {
 	tabs := container.NewAppTabs(
-		container.NewTabItem("Дашборд", buildDashboardTab(w, cfg)),
-		container.NewTabItem("Сервисы", buildServicesTab(w, cfg)),
+		container.NewTabItem(i18n.T("Dashboard"), buildDashboardTab(w, cfg)),
+		container.NewTabItem(i18n.T("Services"), buildServicesTab(w, cfg)),
 		container.NewTabItem("Docker", buildDockerTab(w, cfg)),
-		container.NewTabItem("Процессы", buildProcessesTab(w)),
-		container.NewTabItem("Файлы", buildFilesTab(w)),
-		container.NewTabItem("Команды", buildCommandsTab(w)),
-		container.NewTabItem("О системе", NewSystemInfoTab(w)),
-		container.NewTabItem("Логи", buildLogsTab(cfg)),
-		container.NewTabItem("История", buildActivityTab()),
-		container.NewTabItem("Отчёт", buildReportTab(w)),
-		container.NewTabItem("Настройки", buildSettingsTab(w, cfg)),
+		container.NewTabItem(i18n.T("Processes"), buildProcessesTab(w)),
+		container.NewTabItem(i18n.T("Files"), buildFilesTab(w)),
+		container.NewTabItem(i18n.T("Commands"), buildCommandsTab(w)),
+		container.NewTabItem(i18n.T("System Info"), NewSystemInfoTab(w)),
+		container.NewTabItem(i18n.T("Logs"), buildLogsTab(cfg)),
+		container.NewTabItem(i18n.T("Activity"), buildActivityTab()),
+		container.NewTabItem(i18n.T("Report"), buildReportTab(w)),
+		container.NewTabItem(i18n.T("Settings"), buildSettingsTab(w, cfg)),
 	)
 
 	tabs.SetTabLocation(container.TabLocationTop)
@@ -40,10 +72,10 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 	applyThemeButton := func() {
 		if isDark {
 			themeBtn.SetIcon(theme.NewThemedResource(theme.RadioButtonCheckedIcon()))
-			themeBtn.SetText("Светлая")
+			themeBtn.SetText(i18n.T("Light"))
 		} else {
 			themeBtn.SetIcon(theme.NewThemedResource(theme.RadioButtonIcon()))
-			themeBtn.SetText("Тёмная")
+			themeBtn.SetText(i18n.T("Dark"))
 		}
 	}
 
@@ -70,13 +102,8 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 	ctrlR := &desktop.CustomShortcut{KeyName: fyne.KeyR, Modifier: fyne.KeyModifierControl}
 	w.Canvas().AddShortcut(ctrlR, func(shortcut fyne.Shortcut) {
 		selected := tabs.SelectedIndex()
-		tabNames := []string{
-			"Dashboard", "Services", "Docker", "Processes",
-			"Files", "Commands", "System Info", "Logs",
-			"Activity", "Report", "Settings",
-		}
-		if selected >= 0 && selected < len(tabNames) {
-			if fn := GetRefresh(tabNames[selected]); fn != nil {
+		if selected >= 0 && selected < len(tabKeys) {
+			if fn := GetRefresh(tabKeys[selected]); fn != nil {
 				fn()
 			}
 		}
@@ -93,17 +120,9 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 		nil,
 	)
 
-	content := container.NewBorder(
+	return container.NewBorder(
 		container.NewVBox(container.NewPadded(topBar), widget.NewSeparator()),
 		nil, nil, nil,
 		tabs,
 	)
-	w.SetContent(content)
-
-	w.SetCloseIntercept(func() {
-		RunClosers()
-		w.Close()
-	})
-
-	return w
 }

@@ -6,8 +6,9 @@ import (
 	"fmt"
 )
 
-// SystemLogName labels the log backend in the UI.
-const SystemLogName = "journalctl"
+// SystemLogName labels the log backend in the UI. "journalctl" is a proper noun
+// and is not translated.
+func SystemLogName() string { return "journalctl" }
 
 // GetSystemLogs returns the most recent journal entries.
 func GetSystemLogs(lines int) (string, error) {

@@ -79,14 +79,33 @@ Config file location:
 - Linux: `~/.config/system-hub/config.json`
 - Windows: `%APPDATA%/system-hub/config.json`
 
+### Language
+
+The interface ships in Russian and English. Set `"language"` in the config, or
+use the switcher in the Settings tab — it applies immediately, without a
+restart:
+
+| Value  | Meaning                          |
+| ------ | -------------------------------- |
+| `ru`   | Russian (default)                |
+| `en`   | English                          |
+| `auto` | Follow the operating system locale |
+
+Adding a language means dropping a `<code>.json` file into
+[`internal/i18n/translation/`](internal/i18n/translation/) and listing the code
+in `i18n.Supported()`. The keys are the English source strings, so an untranslated
+entry renders in English rather than breaking the layout. A test parses the
+source and fails if a translation is missing, unused, or drops a format verb.
+
 ## Project Structure
 
 ```
 cmd/system-hub/       — Application entry point
 internal/
-  activity/           — In-memory activity logger
+  activity/           — Activity logger, persisted as JSONL
   appstate/           — Global config state
   config/             — JSON config management
+  i18n/               — Translations (ru/en), keys are the English strings
   logger/             — File-based logger
   system/             — System interaction (gopsutil, CLI tools)
     info.go           — CPU, RAM, disk, uptime, network, per-CPU

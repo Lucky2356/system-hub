@@ -5,10 +5,13 @@ package system
 import (
 	"fmt"
 	"strings"
+
+	"github.com/Lucky2356/system-hub/internal/i18n"
 )
 
-// SystemLogName labels the log backend in the UI.
-const SystemLogName = "Журнал событий Windows"
+// SystemLogName labels the log backend in the UI. It is a function, not a
+// constant, because the language can change at runtime.
+func SystemLogName() string { return i18n.T("Windows Event Log") }
 
 // GetSystemLogs returns the most recent entries from the Windows System event
 // log. wevtutil is used rather than PowerShell's Get-WinEvent: it is a small
@@ -36,7 +39,7 @@ func getServiceLogs(serviceName string, lines int) (string, error) {
 		return "", err
 	}
 	if strings.TrimSpace(out) == "" {
-		return fmt.Sprintf("Для службы %s нет записей в журнале событий.", serviceName), nil
+		return i18n.Tf("No event log entries for service %s.", serviceName), nil
 	}
 	return out, nil
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
+	"github.com/Lucky2356/system-hub/internal/i18n"
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
@@ -20,7 +21,7 @@ import (
 
 func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	// The app name lives in the window header; the tab only needs a caption.
-	subtitle := widget.NewLabel("Обзор системы: CPU / RAM / диск / сеть / сервисы / Docker")
+	subtitle := widget.NewLabel(i18n.T("System overview: CPU / RAM / disk / network / services / Docker"))
 
 	cpuValueLabel := widget.NewLabel("CPU: ...")
 	cpuBar := widget.NewProgressBar()
@@ -29,30 +30,30 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	ramDetailsLabel := widget.NewLabel("...")
 	ramBar := widget.NewProgressBar()
 
-	diskValueLabel := widget.NewLabel("Диск: ...")
+	diskValueLabel := widget.NewLabel(i18n.T("Disk") + ": ...")
 	diskDetailsLabel := widget.NewLabel("...")
 	diskBar := widget.NewProgressBar()
 
-	uptimeLabel := widget.NewLabel("Аптайм: ...")
-	systemdLabel := widget.NewLabel(system.ServiceManagerName + ": ...")
+	uptimeLabel := widget.NewLabel(i18n.T("Uptime") + ": ...")
+	systemdLabel := widget.NewLabel(system.ServiceManagerName() + ": ...")
 	dockerLabel := widget.NewLabel("Docker: ...")
 
-	serviceCountLabel := widget.NewLabel("Сервисов: ...")
-	dockerCountLabel := widget.NewLabel("Контейнеров: ...")
-	dockerRunningLabel := widget.NewLabel("Запущено: ...")
+	serviceCountLabel := widget.NewLabel(i18n.T("Services") + ": ...")
+	dockerCountLabel := widget.NewLabel(i18n.T("Containers") + ": ...")
+	dockerRunningLabel := widget.NewLabel(i18n.T("Running") + ": ...")
 
-	favoriteServicesBox := container.NewVBox(widget.NewLabel("Нет избранных сервисов"))
-	favoriteContainersBox := container.NewVBox(widget.NewLabel("Нет избранных контейнеров"))
-	problemsLabel := widget.NewLabel("Проверка проблем...")
-	topProcessesLabel := widget.NewLabel("Загрузка списка процессов...")
+	favoriteServicesBox := container.NewVBox(widget.NewLabel(i18n.T("No favorite services")))
+	favoriteContainersBox := container.NewVBox(widget.NewLabel(i18n.T("No favorite containers")))
+	problemsLabel := widget.NewLabel(i18n.T("Checking for problems..."))
+	topProcessesLabel := widget.NewLabel(i18n.T("Loading the process list..."))
 	topProcessesLabel.Wrapping = fyne.TextWrapWord
 
 	recvLabel := widget.NewLabel("RX: ...")
 	sentLabel := widget.NewLabel("TX: ...")
 
-	perCPUBars := container.NewVBox(widget.NewLabel("Загрузка данных по ядрам..."))
+	perCPUBars := container.NewVBox(widget.NewLabel(i18n.T("Loading per-core data...")))
 
-	tempLabel := widget.NewLabel("Загрузка температур...")
+	tempLabel := widget.NewLabel(i18n.T("Loading temperatures..."))
 	tempLabel.Wrapping = fyne.TextWrapWord
 	fanLabel := widget.NewLabel("")
 	fanLabel.Wrapping = fyne.TextWrapWord
@@ -62,7 +63,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	problemsLabel.Wrapping = fyne.TextWrapWord
 	topProcessesLabel.Wrapping = fyne.TextWrapWord
 
-	statusLabel := widget.NewLabel("Статус: ожидание")
+	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
 
 	makeStatusText := func(status string) *canvas.Text {
 		text := canvas.NewText(status, StatusColor(status))
@@ -80,12 +81,12 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 
 	buildFavoriteServiceRows := func() []fyne.CanvasObject {
 		if len(appstate.GetConfig().FavoriteServices) == 0 {
-			return []fyne.CanvasObject{widget.NewLabel("Нет избранных сервисов")}
+			return []fyne.CanvasObject{widget.NewLabel(i18n.T("No favorite services"))}
 		}
 
 		services, err := system.ListServices()
 		if err != nil {
-			return []fyne.CanvasObject{widget.NewLabel("Не удалось загрузить избранные сервисы")}
+			return []fyne.CanvasObject{widget.NewLabel(i18n.T("Could not load favorite services"))}
 		}
 
 		serviceMap := make(map[string]system.ServiceInfo, len(services))
@@ -95,8 +96,8 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 
 		runServiceAction := func(action, serviceName string) {
 			dialog.ShowConfirm(
-				"Подтверждение",
-				fmt.Sprintf("Выполнить %s для сервиса %s?", strings.ToUpper(action), serviceName),
+				i18n.T("Confirmation"),
+				i18n.Tf("Run %s for service %s?", strings.ToUpper(action), serviceName),
 				func(ok bool) {
 					if !ok {
 						return
@@ -128,7 +129,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		for _, name := range appstate.GetConfig().FavoriteServices {
 			svc, ok := serviceMap[name]
 
-			statusText := "недоступен"
+			statusText := i18n.T("unavailable")
 			if ok {
 				statusText = svc.ActiveState
 			}
@@ -143,11 +144,11 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 				statusTextObj,
 			)
 
-			logsButton := widget.NewButton("Логи", func(serviceName string) func() {
+			logsButton := widget.NewButton(i18n.T("Logs"), func(serviceName string) func() {
 				return func() {
 					showLogsWindow(
-						"Логи сервиса: "+serviceName,
-						"Логи сервиса "+serviceName,
+						i18n.Tf("Service logs: %s", serviceName),
+						i18n.Tf("Logs for service %s", serviceName),
 						func() (string, error) {
 							return system.GetServiceLogs(serviceName, appstate.GetConfig().DefaultLogLines)
 						},
@@ -156,7 +157,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 				}
 			}(name))
 
-			unitButton := widget.NewButton("Юнит", func(serviceName string) func() {
+			unitButton := widget.NewButton(i18n.T("Unit"), func(serviceName string) func() {
 				return func() {
 					unitPath, err := system.FindServiceUnitFile(serviceName)
 					if err != nil {
@@ -170,26 +171,26 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 					}
 
 					dialog.ShowInformation(
-						"Юнит-файл открыт",
-						"Файл открыт во вкладке «Файлы»:\n"+unitPath,
+						i18n.T("Unit file opened"),
+						i18n.Tf("The file is open in the «Files» tab:\n%s", unitPath),
 						parent,
 					)
 				}
 			}(name))
 
-			startButton := widget.NewButton("Старт", func(serviceName string) func() {
+			startButton := widget.NewButton(i18n.T("Start"), func(serviceName string) func() {
 				return func() {
 					runServiceAction("start", serviceName)
 				}
 			}(name))
 
-			stopButton := widget.NewButton("Стоп", func(serviceName string) func() {
+			stopButton := widget.NewButton(i18n.T("Stop"), func(serviceName string) func() {
 				return func() {
 					runServiceAction("stop", serviceName)
 				}
 			}(name))
 
-			restartButton := widget.NewButton("Рестарт", func(serviceName string) func() {
+			restartButton := widget.NewButton(i18n.T("Restart"), func(serviceName string) func() {
 				return func() {
 					runServiceAction("restart", serviceName)
 				}
@@ -215,12 +216,12 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 
 	buildFavoriteContainerRows := func() []fyne.CanvasObject {
 		if len(appstate.GetConfig().FavoriteContainers) == 0 {
-			return []fyne.CanvasObject{widget.NewLabel("Нет избранных контейнеров")}
+			return []fyne.CanvasObject{widget.NewLabel(i18n.T("No favorite containers"))}
 		}
 
 		containers, err := system.ListDockerContainers()
 		if err != nil {
-			return []fyne.CanvasObject{widget.NewLabel("Не удалось загрузить избранные контейнеры")}
+			return []fyne.CanvasObject{widget.NewLabel(i18n.T("Could not load favorite containers"))}
 		}
 
 		containerMap := make(map[string]system.DockerContainerInfo, len(containers))
@@ -230,8 +231,8 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 
 		runContainerAction := func(action, containerName string) {
 			dialog.ShowConfirm(
-				"Подтверждение",
-				fmt.Sprintf("Выполнить %s для контейнера %s?", strings.ToUpper(action), containerName),
+				i18n.T("Confirmation"),
+				i18n.Tf("Run %s for container %s?", strings.ToUpper(action), containerName),
 				func(ok bool) {
 					if !ok {
 						return
@@ -263,7 +264,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		for _, name := range appstate.GetConfig().FavoriteContainers {
 			c, ok := containerMap[name]
 
-			statusText := "недоступен"
+			statusText := i18n.T("unavailable")
 			if ok {
 				statusText = c.State
 			}
@@ -278,11 +279,11 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 				statusTextObj,
 			)
 
-			logsButton := widget.NewButton("Логи", func(containerName string) func() {
+			logsButton := widget.NewButton(i18n.T("Logs"), func(containerName string) func() {
 				return func() {
 					showLogsWindow(
-						"Логи контейнера: "+containerName,
-						"Логи контейнера "+containerName,
+						i18n.Tf("Container logs: %s", containerName),
+						i18n.Tf("Logs for container %s", containerName),
 						func() (string, error) {
 							return system.GetDockerContainerLogs(containerName, appstate.GetConfig().DefaultLogLines)
 						},
@@ -291,7 +292,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 				}
 			}(name))
 
-			inspectButton := widget.NewButton("Инспекция", func(containerName string) func() {
+			inspectButton := widget.NewButton(i18n.T("Inspect"), func(containerName string) func() {
 				return func() {
 					go func() {
 						result, err := system.GetDockerContainerInspect(containerName)
@@ -312,8 +313,8 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 							output.Disable()
 
 							dialog.ShowCustom(
-								"Инспекция контейнера: "+containerName,
-								"Закрыть",
+								i18n.Tf("Container inspect: %s", containerName),
+								i18n.T("Close"),
 								container.NewPadded(output),
 								parent,
 							)
@@ -322,19 +323,19 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 				}
 			}(name))
 
-			startButton := widget.NewButton("Старт", func(containerName string) func() {
+			startButton := widget.NewButton(i18n.T("Start"), func(containerName string) func() {
 				return func() {
 					runContainerAction("start", containerName)
 				}
 			}(name))
 
-			stopButton := widget.NewButton("Стоп", func(containerName string) func() {
+			stopButton := widget.NewButton(i18n.T("Stop"), func(containerName string) func() {
 				return func() {
 					runContainerAction("stop", containerName)
 				}
 			}(name))
 
-			restartButton := widget.NewButton("Рестарт", func(containerName string) func() {
+			restartButton := widget.NewButton(i18n.T("Restart"), func(containerName string) func() {
 				return func() {
 					runContainerAction("restart", containerName)
 				}
@@ -381,11 +382,11 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 				perCPUBars.Add(container.NewVBox(label, bar))
 			}
 			if len(stats.PerCPU) == 0 {
-				perCPUBars.Add(widget.NewLabel("Нет данных по ядрам"))
+				perCPUBars.Add(widget.NewLabel(i18n.T("No per-core data")))
 			}
 		}
 		for i, core := range stats.PerCPU {
-			coreRows[i].label.SetText(fmt.Sprintf("Ядро %d: %.1f%%", core.Core, core.Percent))
+			coreRows[i].label.SetText(i18n.Tf("Core %d: %.1f%%", core.Core, core.Percent))
 			coreRows[i].bar.SetValue(core.Percent / 100)
 		}
 		perCPUBars.Refresh()
@@ -397,7 +398,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		// the heavy tick (they are also carried on stats only when heavy).
 		if heavy {
 			if len(stats.Temperatures) == 0 {
-				tempLabel.SetText("Нет данных о температуре")
+				tempLabel.SetText(i18n.T("No temperature data"))
 			} else {
 				parts := make([]string, 0, len(stats.Temperatures))
 				for _, s := range stats.Temperatures {
@@ -437,7 +438,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		))
 		ramBar.SetValue(stats.RAMPercent / 100)
 
-		diskValueLabel.SetText(fmt.Sprintf("Диск: %.1f%%", stats.DiskPercent))
+		diskValueLabel.SetText(i18n.Tf("Disk: %.1f%%", stats.DiskPercent))
 		diskDetailsLabel.SetText(fmt.Sprintf(
 			"%s / %s",
 			system.FormatBytes(stats.DiskUsed),
@@ -446,41 +447,41 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		diskBar.SetValue(stats.DiskPercent / 100)
 
 		if stats.UptimeKnown {
-			uptimeLabel.SetText("Аптайм: " + system.FormatUptime(stats.UptimeSeconds))
+			uptimeLabel.SetText(i18n.T("Uptime") + ": " + system.FormatUptime(stats.UptimeSeconds))
 		} else {
-			uptimeLabel.SetText("Аптайм: недоступно")
+			uptimeLabel.SetText(i18n.T("Uptime") + ": " + i18n.T("unavailable"))
 		}
 
 		if !heavy {
-			statusLabel.SetText("Обновлено: " + time.Now().Format("15:04:05"))
+			statusLabel.SetText(i18n.T("Updated") + ": " + time.Now().Format("15:04:05"))
 			return
 		}
 
 		if stats.ServiceManagerAvailable {
-			systemdLabel.SetText(system.ServiceManagerName + ": доступен")
+			systemdLabel.SetText(system.ServiceManagerName() + ": " + i18n.T("available"))
 			if stats.ServiceCountKnown {
-				serviceCountLabel.SetText(fmt.Sprintf("Сервисов: %d", stats.ServiceCount))
+				serviceCountLabel.SetText(i18n.Tf("Services: %d", stats.ServiceCount))
 			} else {
-				serviceCountLabel.SetText("Сервисов: недоступно")
+				serviceCountLabel.SetText(i18n.T("Services") + ": " + i18n.T("unavailable"))
 			}
 		} else {
-			systemdLabel.SetText(system.ServiceManagerName + ": недоступен")
-			serviceCountLabel.SetText("Сервисов: недоступно")
+			systemdLabel.SetText(system.ServiceManagerName() + ": " + i18n.T("unavailable"))
+			serviceCountLabel.SetText(i18n.T("Services") + ": " + i18n.T("unavailable"))
 		}
 
 		if stats.DockerAvailable {
-			dockerLabel.SetText("Docker: доступен")
+			dockerLabel.SetText("Docker: " + i18n.T("available"))
 			if stats.DockerCountKnown {
-				dockerCountLabel.SetText(fmt.Sprintf("Контейнеров: %d", stats.DockerContainerCount))
-				dockerRunningLabel.SetText(fmt.Sprintf("Запущено: %d", stats.DockerRunningCount))
+				dockerCountLabel.SetText(i18n.Tf("Containers: %d", stats.DockerContainerCount))
+				dockerRunningLabel.SetText(i18n.Tf("Running: %d", stats.DockerRunningCount))
 			} else {
-				dockerCountLabel.SetText("Контейнеров: недоступно")
-				dockerRunningLabel.SetText("Запущено: недоступно")
+				dockerCountLabel.SetText(i18n.T("Containers") + ": " + i18n.T("unavailable"))
+				dockerRunningLabel.SetText(i18n.T("Running") + ": " + i18n.T("unavailable"))
 			}
 		} else {
-			dockerLabel.SetText("Docker: недоступен")
-			dockerCountLabel.SetText("Контейнеров: недоступно")
-			dockerRunningLabel.SetText("Запущено: недоступно")
+			dockerLabel.SetText("Docker: " + i18n.T("unavailable"))
+			dockerCountLabel.SetText(i18n.T("Containers") + ": " + i18n.T("unavailable"))
+			dockerRunningLabel.SetText(i18n.T("Running") + ": " + i18n.T("unavailable"))
 		}
 
 		favoriteServicesBox.Objects = buildFavoriteServiceRows()
@@ -495,7 +496,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 			appstate.GetConfig().FavoriteContainers,
 		)
 		if len(problems) == 0 {
-			problemsLabel.SetText("Проблем не обнаружено")
+			problemsLabel.SetText(i18n.T("No problems detected"))
 		} else {
 			problemsLabel.SetText(joinLines(problems))
 		}
@@ -503,18 +504,18 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		notifyProblems(problems)
 		topProcesses, err := system.ListTopProcesses(5)
 		if err != nil {
-			topProcessesLabel.SetText("Не удалось загрузить список процессов")
+			topProcessesLabel.SetText(i18n.T("Could not load the process list"))
 		} else {
 			topProcessesLabel.SetText(formatTopProcesses(topProcesses))
 		}
-		statusLabel.SetText("Обновлено: " + time.Now().Format("15:04:05"))
+		statusLabel.SetText(i18n.T("Updated") + ": " + time.Now().Format("15:04:05"))
 	}
 
 	showError := func(err error) {
 		if err == nil {
 			return
 		}
-		statusLabel.SetText("Ошибка: " + err.Error())
+		statusLabel.SetText(i18n.Tf("Error: %s", err.Error()))
 	}
 
 	refreshStats = func(heavy bool) {
@@ -537,13 +538,13 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		})
 	}
 
-	refreshButton := widget.NewButtonWithIcon("Обновить", theme.ViewRefreshIcon(), func() {
+	refreshButton := widget.NewButtonWithIcon(i18n.T("Refresh"), theme.ViewRefreshIcon(), func() {
 		refreshButtonTapped()
 	})
 
 	cpuCard := NewStatCard(
 		"CPU",
-		"Текущая загрузка процессора",
+		i18n.T("Current processor load"),
 		container.NewVBox(
 			cpuValueLabel,
 			cpuBar,
@@ -552,7 +553,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 
 	ramCard := NewStatCard(
 		"RAM",
-		"Использование оперативной памяти",
+		i18n.T("Memory usage"),
 		container.NewVBox(
 			ramValueLabel,
 			ramBar,
@@ -561,8 +562,8 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	)
 
 	diskCard := NewStatCard(
-		"Диск",
-		"Использование диска",
+		i18n.T("Disk"),
+		i18n.T("Disk usage"),
 		container.NewVBox(
 			diskValueLabel,
 			diskBar,
@@ -571,16 +572,16 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	)
 
 	uptimeCard := NewStatCard(
-		"Аптайм",
-		"Время непрерывной работы системы",
+		i18n.T("Uptime"),
+		i18n.T("How long the system has been running"),
 		container.NewVBox(
 			uptimeLabel,
 		),
 	)
 
 	servicesCard := NewStatCard(
-		"Сервисы",
-		"Статус и количество сервисов",
+		i18n.T("Services"),
+		i18n.T("Service status and count"),
 		container.NewVBox(
 			systemdLabel,
 			serviceCountLabel,
@@ -589,7 +590,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 
 	dockerCard := NewStatCard(
 		"Docker",
-		"Статус и количество контейнеров",
+		i18n.T("Container status and count"),
 		container.NewVBox(
 			dockerLabel,
 			dockerCountLabel,
@@ -598,36 +599,36 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	)
 
 	favoriteServicesCard := NewStatCard(
-		"Избранные сервисы",
-		"Быстрые действия для важных сервисов",
+		i18n.T("Favorite services"),
+		i18n.T("Quick actions for important services"),
 		favoriteServicesBox,
 	)
 
 	favoriteContainersCard := NewStatCard(
-		"Избранные контейнеры",
-		"Быстрые действия для важных контейнеров",
+		i18n.T("Favorite containers"),
+		i18n.T("Quick actions for important containers"),
 		favoriteContainersBox,
 	)
 
 	problemsCard := NewStatCard(
-		"Проблемы",
-		"Проблемы, требующие внимания",
+		i18n.T("Problems"),
+		i18n.T("Problems that need attention"),
 		container.NewVBox(
 			problemsLabel,
 		),
 	)
 
 	topProcessesCard := NewStatCard(
-		"Топ процессов",
-		"Самые тяжёлые процессы по CPU",
+		i18n.T("Top processes"),
+		i18n.T("The heaviest processes by CPU"),
 		container.NewVBox(
 			topProcessesLabel,
 		),
 	)
 
 	networkCard := NewStatCard(
-		"Сеть",
-		"Передано / получено данных",
+		i18n.T("Network"),
+		i18n.T("Data sent / received"),
 		container.NewVBox(
 			recvLabel,
 			sentLabel,
@@ -635,16 +636,16 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	)
 
 	perCPUCard := NewStatCard(
-		"Ядра CPU",
-		"Загрузка каждого ядра процессора",
+		i18n.T("CPU cores"),
+		i18n.T("Load on each processor core"),
 		container.NewVBox(
 			perCPUBars,
 		),
 	)
 
 	tempCard := NewStatCard(
-		"Температура",
-		"Температура CPU/GPU",
+		i18n.T("Temperature"),
+		i18n.T("CPU/GPU temperature"),
 		container.NewVBox(tempLabel, fanLabel, voltageLabel),
 	)
 
@@ -721,7 +722,7 @@ func joinLines(items []string) string {
 
 func formatTopProcesses(items []system.ProcessUsageInfo) string {
 	if len(items) == 0 {
-		return "Нет данных о процессах"
+		return i18n.T("No process data")
 	}
 
 	lines := make([]string, 0, len(items))

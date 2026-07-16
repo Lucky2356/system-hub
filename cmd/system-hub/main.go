@@ -9,6 +9,7 @@ import (
 	"github.com/Lucky2356/system-hub/internal/activity"
 	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
+	"github.com/Lucky2356/system-hub/internal/i18n"
 	"github.com/Lucky2356/system-hub/internal/logger"
 	"github.com/Lucky2356/system-hub/internal/ui"
 	"github.com/Lucky2356/system-hub/internal/version"
@@ -30,6 +31,10 @@ func main() {
 		cfg = config.DefaultConfig()
 	}
 	appstate.SetConfig(cfg)
+
+	// Set the language before any UI is built: widget labels are read at
+	// construction time.
+	i18n.SetLanguage(cfg.Language)
 
 	if logPath, err := config.LogFilePath(cfg); err != nil {
 		log.Printf("warning: resolve log path: %v", err)

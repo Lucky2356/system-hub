@@ -8,8 +8,10 @@ import (
 	"strings"
 )
 
-// ServiceManagerName labels the service backend in the UI.
-const ServiceManagerName = "systemd"
+// ServiceManagerName labels the service backend in the UI. It mirrors the
+// Windows provider's function signature; "systemd" is a proper noun and is not
+// translated.
+func ServiceManagerName() string { return "systemd" }
 
 func errUnsupportedAction(action string) error {
 	return fmt.Errorf("unsupported action: %s", action)

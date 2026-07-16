@@ -125,6 +125,8 @@ func StatusColor(state string) color.Color {
 		return DangerColor
 	case "activating", "deactivating", "restarting", "paused", "created":
 		return WarningColor
+	// The dashboard passes a translated word for a missing service/container, so
+	// both the English key and its Russian translation are matched here.
 	case "inactive", "dead", "unavailable", "недоступен", "stopped":
 		return MutedColor
 	default:

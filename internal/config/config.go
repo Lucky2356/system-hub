@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Lucky2356/system-hub/internal/i18n"
 )
 
 const (
@@ -36,6 +38,11 @@ type Config struct {
 	FavoriteContainers []string `json:"favorite_containers"`
 
 	Theme string `json:"theme"`
+
+	// Language is "auto" (follow the OS locale), "ru" or "en". It defaults to
+	// "ru" rather than "auto" to keep the UI unchanged for existing users, whose
+	// configs predate this field.
+	Language string `json:"language"`
 }
 
 func DefaultConfig() Config {
@@ -51,6 +58,7 @@ func DefaultConfig() Config {
 		FavoriteServices:       []string{},
 		FavoriteContainers:     []string{},
 		Theme:                  "dark",
+		Language:               i18n.Russian,
 	}
 }
 
@@ -72,6 +80,14 @@ func (c *Config) Normalize() {
 
 	if c.Theme != "light" && c.Theme != "dark" {
 		c.Theme = "dark"
+	}
+
+	// An unset Language means a config written before the field existed, so it
+	// belongs to a user who has only ever seen the Russian UI.
+	switch c.Language {
+	case i18n.Auto, i18n.Russian, i18n.English:
+	default:
+		c.Language = i18n.Russian
 	}
 
 	// Keep slices non-nil so they marshal as [] rather than null.

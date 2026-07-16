@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -9,6 +8,7 @@ import (
 	"github.com/Lucky2356/system-hub/internal/activity"
 	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
+	"github.com/Lucky2356/system-hub/internal/i18n"
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
@@ -19,29 +19,34 @@ import (
 )
 
 func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
-	title := widget.NewLabel("Сервисы")
+	title := widget.NewLabel(i18n.T("Services"))
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("Просмотр и управление службами (" + system.ServiceManagerName + ")")
+	subtitle := widget.NewLabel(i18n.Tf("View and manage services (%s)", system.ServiceManagerName()))
 
 	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Поиск (например: ssh, docker...)")
+	searchEntry.SetPlaceHolder(i18n.T("Search (for example: ssh, docker...)"))
 
-	// Русские подписи фильтра сопоставляются со значениями ActiveState systemd.
-	statusFilterValues := map[string]string{
-		"Все":         "",
-		"Активные":    "active",
-		"Неактивные":  "inactive",
-		"Сбойные":     "failed",
-		"Запускаются": "activating",
+	// The visible labels are translated; the values they map to are systemd's
+	// own ActiveState words and must not be.
+	statusFilterLabels := []string{
+		i18n.T("All"), i18n.T("Active"), i18n.T("Inactive"), i18n.T("Failed"), i18n.T("Starting"),
 	}
-	statusFilter := widget.NewSelect([]string{"Все", "Активные", "Неактивные", "Сбойные", "Запускаются"}, nil)
-	statusFilter.SetSelected("Все")
+	statusFilterValues := map[string]string{
+		statusFilterLabels[0]: "",
+		statusFilterLabels[1]: "active",
+		statusFilterLabels[2]: "inactive",
+		statusFilterLabels[3]: "failed",
+		statusFilterLabels[4]: "activating",
+	}
+	statusFilter := widget.NewSelect(statusFilterLabels, nil)
+	statusFilter.SetSelected(statusFilterLabels[0])
 
-	sortSelect := widget.NewSelect([]string{"Имя", "Статус"}, nil)
-	sortSelect.SetSelected("Имя")
+	sortByName, sortByStatus := i18n.T("Name"), i18n.T("Status")
+	sortSelect := widget.NewSelect([]string{sortByName, sortByStatus}, nil)
+	sortSelect.SetSelected(sortByName)
 
-	statusLabel := widget.NewLabel("Статус: ожидание")
+	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
 
 	var allServices []system.ServiceInfo
 	var filteredServices []system.ServiceInfo
@@ -49,19 +54,19 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	lastSelectedServiceName := ""
 
 	autoRefreshCheck := widget.NewCheck(
-		fmt.Sprintf("Автообновление (%d сек)", appstate.GetConfig().RefreshIntervalSeconds),
+		i18n.Tf("Auto-refresh (%d s)", appstate.GetConfig().RefreshIntervalSeconds),
 		nil,
 	)
 	autoRefreshCheck.SetChecked(cfg.ServicesAutoRefresh)
 
-	detailsButton := widget.NewButtonWithIcon("Подробнее", theme.InfoIcon(), nil)
-	openUnitButton := widget.NewButtonWithIcon("Юнит-файл", theme.FileTextIcon(), nil)
-	logsButton := widget.NewButtonWithIcon("Логи", theme.DocumentIcon(), nil)
-	startButton := widget.NewButtonWithIcon("Старт", theme.MediaPlayIcon(), nil)
-	stopButton := widget.NewButtonWithIcon("Стоп", theme.MediaStopIcon(), nil)
-	restartButton := widget.NewButtonWithIcon("Рестарт", theme.ViewRefreshIcon(), nil)
-	enableButton := widget.NewButtonWithIcon("Включить", theme.ConfirmIcon(), nil)
-	disableButton := widget.NewButtonWithIcon("Отключить", theme.CancelIcon(), nil)
+	detailsButton := widget.NewButtonWithIcon(i18n.T("Details"), theme.InfoIcon(), nil)
+	openUnitButton := widget.NewButtonWithIcon(i18n.T("Unit file"), theme.FileTextIcon(), nil)
+	logsButton := widget.NewButtonWithIcon(i18n.T("Logs"), theme.DocumentIcon(), nil)
+	startButton := widget.NewButtonWithIcon(i18n.T("Start"), theme.MediaPlayIcon(), nil)
+	stopButton := widget.NewButtonWithIcon(i18n.T("Stop"), theme.MediaStopIcon(), nil)
+	restartButton := widget.NewButtonWithIcon(i18n.T("Restart"), theme.ViewRefreshIcon(), nil)
+	enableButton := widget.NewButtonWithIcon(i18n.T("Enable"), theme.ConfirmIcon(), nil)
+	disableButton := widget.NewButtonWithIcon(i18n.T("Disable"), theme.CancelIcon(), nil)
 	favoriteButton := widget.NewButtonWithIcon("", theme.RadioButtonIcon(), nil)
 
 	startButton.Importance = widget.HighImportance
@@ -93,10 +98,10 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			svc := filteredServices[selectedIndex]
 			if isFavoriteService(svc.Name) {
 				favoriteButton.SetIcon(theme.RadioButtonCheckedIcon())
-				favoriteButton.SetText("В избранном")
+				favoriteButton.SetText(i18n.T("In favorites"))
 			} else {
 				favoriteButton.SetIcon(theme.RadioButtonIcon())
-				favoriteButton.SetText("В избранное")
+				favoriteButton.SetText(i18n.T("Add to favorites"))
 			}
 			return
 		}
@@ -111,7 +116,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		disableButton.Disable()
 		favoriteButton.Disable()
 		favoriteButton.SetIcon(theme.RadioButtonIcon())
-		favoriteButton.SetText("В избранное")
+		favoriteButton.SetText(i18n.T("Add to favorites"))
 	}
 
 	getSelectedService := func() (*system.ServiceInfo, bool) {
@@ -125,7 +130,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	sortServices := func(items []system.ServiceInfo) {
 		switch sortSelect.Selected {
-		case "Статус":
+		case sortByStatus:
 			sort.SliceStable(items, func(i, j int) bool {
 				if items[i].ActiveState == items[j].ActiveState {
 					return items[i].Name < items[j].Name
@@ -223,13 +228,13 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		updateActionButtons()
 
 		if len(filteredServices) == 0 {
-			statusLabel.SetText("Статус: 0 результатов")
+			statusLabel.SetText(i18n.T("Status: 0 results"))
 			return
 		}
 
 		statusLabel.SetText(
-			fmt.Sprintf(
-				"Статус: %d сервисов | обновлено %s",
+			i18n.Tf(
+				"Status: %d services | updated %s",
 				len(filteredServices),
 				time.Now().Format("15:04:05"),
 			),
@@ -244,7 +249,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		serviceList.UnselectAll()
 		serviceList.Refresh()
 		updateActionButtons()
-		statusLabel.SetText("Статус: ошибка загрузки — " + err.Error())
+		statusLabel.SetText(i18n.Tf("Status: load error — %s", err.Error()))
 	}
 
 	refreshServices := func() {
@@ -267,18 +272,18 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		description.Wrapping = fyne.TextWrapWord
 
 		content := container.NewVBox(
-			widget.NewLabel("Имя: "+svc.Name),
-			widget.NewLabel("Load-состояние: "+svc.LoadState),
-			widget.NewLabel("Active-состояние: "+svc.ActiveState),
-			widget.NewLabel("Sub-состояние: "+svc.SubState),
+			widget.NewLabel(i18n.T("Name")+": "+svc.Name),
+			widget.NewLabel(i18n.T("Load state")+": "+svc.LoadState),
+			widget.NewLabel(i18n.T("Active state")+": "+svc.ActiveState),
+			widget.NewLabel(i18n.T("Sub state")+": "+svc.SubState),
 			widget.NewSeparator(),
-			widget.NewLabel("Описание:"),
+			widget.NewLabel(i18n.T("Description")+":"),
 			description,
 		)
 
 		dialog.ShowCustom(
-			"Сведения о сервисе",
-			"Закрыть",
+			i18n.T("Service details"),
+			i18n.T("Close"),
 			container.NewPadded(content),
 			parent,
 		)
@@ -287,19 +292,19 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	runServiceAction := func(action string) {
 		svc, ok := getSelectedService()
 		if !ok {
-			statusLabel.SetText("Выбери сервис из списка")
+			statusLabel.SetText(i18n.T("Select a service from the list"))
 			updateActionButtons()
 			return
 		}
 
-		message := fmt.Sprintf("Выполнить %s для %s?", strings.ToUpper(action), svc.Name)
+		message := i18n.Tf("Run %s for %s?", strings.ToUpper(action), svc.Name)
 
-		dialog.ShowConfirm("Подтверждение", message, func(confirmed bool) {
+		dialog.ShowConfirm(i18n.T("Confirmation"), message, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
 
-			statusLabel.SetText(fmt.Sprintf("Статус: выполняется %s для %s...", action, svc.Name))
+			statusLabel.SetText(i18n.Tf("Status: running %s for %s...", action, svc.Name))
 			detailsButton.Disable()
 			logsButton.Disable()
 			startButton.Disable()
@@ -321,7 +326,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 							ShowError(parent, err)
 						}
 
-						statusLabel.SetText("Статус: ошибка выполнения")
+						statusLabel.SetText(i18n.T("Status: action failed"))
 						updateActionButtons()
 					})
 					return
@@ -330,8 +335,8 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 				fyne.Do(func() {
 					dialog.ShowInformation(
-						"Готово",
-						fmt.Sprintf("Команда %s для %s выполнена.", strings.ToUpper(action), serviceName),
+						i18n.T("Done"),
+						i18n.Tf("Command %s for %s completed.", strings.ToUpper(action), serviceName),
 						parent,
 					)
 				})
@@ -374,7 +379,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	favoriteButton.OnTapped = func() {
 		svc, ok := getSelectedService()
 		if !ok {
-			statusLabel.SetText("Выбери сервис из списка")
+			statusLabel.SetText(i18n.T("Select a service from the list"))
 			updateActionButtons()
 			return
 		}
@@ -382,7 +387,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		if err := toggleFavoriteService(svc.Name); err != nil {
 			activity.Add("service", "favorite", svc.Name, "failed", err.Error())
 			ShowError(parent, err)
-			statusLabel.SetText("Статус: ошибка сохранения избранного")
+			statusLabel.SetText(i18n.T("Status: could not save favorites"))
 			return
 		}
 
@@ -398,7 +403,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	detailsButton.OnTapped = func() {
 		svc, ok := getSelectedService()
 		if !ok {
-			statusLabel.SetText("Выбери сервис из списка")
+			statusLabel.SetText(i18n.T("Select a service from the list"))
 			updateActionButtons()
 			return
 		}
@@ -409,7 +414,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	openUnitButton.OnTapped = func() {
 		svc, ok := getSelectedService()
 		if !ok {
-			statusLabel.SetText("Выбери сервис из списка")
+			statusLabel.SetText(i18n.T("Select a service from the list"))
 			updateActionButtons()
 			return
 		}
@@ -417,44 +422,44 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		unitPath, err := system.FindServiceUnitFile(svc.Name)
 		if err != nil {
 			ShowError(parent, err)
-			statusLabel.SetText("Статус: юнит-файл не найден")
+			statusLabel.SetText(i18n.T("Status: unit file not found"))
 			return
 		}
 
 		if err := OpenFileInFiles(unitPath); err != nil {
 			ShowError(parent, err)
-			statusLabel.SetText("Статус: не удалось открыть юнит-файл")
+			statusLabel.SetText(i18n.T("Status: could not open the unit file"))
 			return
 		}
 
 		dialog.ShowInformation(
-			"Юнит-файл открыт",
-			"Файл открыт во вкладке «Файлы»:\n"+unitPath,
+			i18n.T("Unit file opened"),
+			i18n.Tf("The file is open in the «Files» tab:\n%s", unitPath),
 			parent,
 		)
-		statusLabel.SetText("Статус: юнит-файл открыт")
+		statusLabel.SetText(i18n.T("Status: unit file opened"))
 	}
 
 	logsButton.OnTapped = func() {
 		svc, ok := getSelectedService()
 		if !ok {
-			statusLabel.SetText("Выбери сервис из списка")
+			statusLabel.SetText(i18n.T("Select a service from the list"))
 			updateActionButtons()
 			return
 		}
 
-		statusLabel.SetText("Открытие окна логов...")
+		statusLabel.SetText(i18n.T("Opening the log window..."))
 
 		showLogsWindow(
-			"Логи сервиса: "+svc.Name,
-			"Логи сервиса "+svc.Name,
+			i18n.Tf("Service logs: %s", svc.Name),
+			i18n.Tf("Logs for service %s", svc.Name),
 			func() (string, error) {
 				return system.GetServiceLogs(svc.Name, cfg.DefaultLogLines)
 			},
 			cfg,
 		)
 
-		statusLabel.SetText("Окно логов открыто")
+		statusLabel.SetText(i18n.T("Log window opened"))
 	}
 
 	startButton.OnTapped = func() {
@@ -477,7 +482,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		runServiceAction("disable")
 	}
 
-	refreshButton := widget.NewButtonWithIcon("Обновить", theme.ViewRefreshIcon(), func() {
+	refreshButton := widget.NewButtonWithIcon(i18n.T("Refresh"), theme.ViewRefreshIcon(), func() {
 		go refreshServices()
 	})
 

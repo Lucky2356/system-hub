@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Lucky2356/system-hub/internal/activity"
+	"github.com/Lucky2356/system-hub/internal/i18n"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -13,15 +14,15 @@ import (
 )
 
 func buildActivityTab() fyne.CanvasObject {
-	title := widget.NewLabel("История действий")
+	title := widget.NewLabel(i18n.T("Activity"))
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("История действий, выполненных из приложения")
+	subtitle := widget.NewLabel(i18n.T("History of actions performed from the application"))
 
 	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Фильтр: nginx, docker, restart...")
+	searchEntry.SetPlaceHolder(i18n.T("Filter: nginx, docker, restart..."))
 
-	statusLabel := widget.NewLabel("Статус: ожидание")
+	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
 
 	logOutput := widget.NewMultiLineEntry()
 	logOutput.Wrapping = fyne.TextWrapWord
@@ -56,7 +57,7 @@ func buildActivityTab() fyne.CanvasObject {
 		}
 
 		if len(lines) == 0 {
-			return "Пока нет действий"
+			return i18n.T("No actions yet")
 		}
 
 		return strings.Join(lines, "\n")
@@ -65,18 +66,18 @@ func buildActivityTab() fyne.CanvasObject {
 	refreshView := func() {
 		entries := activity.List()
 		logOutput.SetText(renderEntries(entries, searchEntry.Text))
-		statusLabel.SetText(fmt.Sprintf("Статус: %d записей | обновлено %s", len(entries), time.Now().Format("15:04:05")))
+		statusLabel.SetText(i18n.Tf("Status: %d entries | updated %s", len(entries), time.Now().Format("15:04:05")))
 	}
 
 	searchEntry.OnChanged = func(string) {
 		refreshView()
 	}
 
-	refreshButton := widget.NewButton("Обновить", func() {
+	refreshButton := widget.NewButton(i18n.T("Refresh"), func() {
 		refreshView()
 	})
 
-	clearButton := widget.NewButton("Очистить", func() {
+	clearButton := widget.NewButton(i18n.T("Clear"), func() {
 		activity.Clear()
 		refreshView()
 	})

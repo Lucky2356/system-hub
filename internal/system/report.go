@@ -84,10 +84,12 @@ func buildStatsSection(stats Stats) string {
 		lines = append(lines, "Uptime: unavailable")
 	}
 
+	// The report stays in English regardless of the UI language: it is an export
+	// artifact meant to be attached to bug reports and shared.
 	if stats.ServiceManagerAvailable {
-		lines = append(lines, ServiceManagerName+": available")
+		lines = append(lines, ServiceManagerName()+": available")
 	} else {
-		lines = append(lines, ServiceManagerName+": unavailable")
+		lines = append(lines, ServiceManagerName()+": unavailable")
 	}
 
 	if stats.ServiceCountKnown {

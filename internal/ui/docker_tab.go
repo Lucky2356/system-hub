@@ -9,6 +9,7 @@ import (
 	"github.com/Lucky2356/system-hub/internal/activity"
 	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
+	"github.com/Lucky2356/system-hub/internal/i18n"
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
@@ -32,28 +33,34 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	title := widget.NewLabel("Docker")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("Просмотр и управление Docker-контейнерами")
+	subtitle := widget.NewLabel(i18n.T("View and manage Docker containers"))
 
-	modeSelect := widget.NewSelect([]string{"Контейнеры", "Образы"}, nil)
-	modeSelect.SetSelected("Контейнеры")
+	modeContainers, modeImages := i18n.T("Containers"), i18n.T("Images")
+	modeSelect := widget.NewSelect([]string{modeContainers, modeImages}, nil)
+	modeSelect.SetSelected(modeContainers)
 
 	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Поиск контейнера (например: nginx, postgres...)")
+	searchEntry.SetPlaceHolder(i18n.T("Search containers (for example: nginx, postgres...)"))
 
-	// Русские подписи фильтра сопоставляются со значениями состояния Docker.
-	statusFilterValues := map[string]string{
-		"Все":           "",
-		"Запущенные":    "running",
-		"Остановленные": "exited",
-		"На паузе":      "paused",
+	// The visible labels are translated; the values they map to are Docker's own
+	// state words and must not be.
+	statusFilterLabels := []string{
+		i18n.T("All"), i18n.T("Running"), i18n.T("Stopped"), i18n.T("Paused"),
 	}
-	statusFilter := widget.NewSelect([]string{"Все", "Запущенные", "Остановленные", "На паузе"}, nil)
-	statusFilter.SetSelected("Все")
+	statusFilterValues := map[string]string{
+		statusFilterLabels[0]: "",
+		statusFilterLabels[1]: "running",
+		statusFilterLabels[2]: "exited",
+		statusFilterLabels[3]: "paused",
+	}
+	statusFilter := widget.NewSelect(statusFilterLabels, nil)
+	statusFilter.SetSelected(statusFilterLabels[0])
 
-	sortSelect := widget.NewSelect([]string{"Имя", "Статус"}, nil)
-	sortSelect.SetSelected("Имя")
+	sortByName, sortByStatus := i18n.T("Name"), i18n.T("Status")
+	sortSelect := widget.NewSelect([]string{sortByName, sortByStatus}, nil)
+	sortSelect.SetSelected(sortByName)
 
-	statusLabel := widget.NewLabel("Статус: ожидание")
+	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
 
 	var allContainers []system.DockerContainerInfo
 	var filteredContainers []system.DockerContainerInfo
@@ -63,24 +70,24 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	lastSelectedContainerName := ""
 
 	autoRefreshCheck := widget.NewCheck(
-		fmt.Sprintf("Автообновление (%d сек)", appstate.GetConfig().RefreshIntervalSeconds),
+		i18n.Tf("Auto-refresh (%d s)", appstate.GetConfig().RefreshIntervalSeconds),
 		nil,
 	)
 	autoRefreshCheck.SetChecked(cfg.DockerAutoRefresh)
 
-	detailsButton := widget.NewButtonWithIcon("Подробнее", theme.InfoIcon(), nil)
-	inspectButton := widget.NewButtonWithIcon("Инспекция", theme.SearchIcon(), nil)
-	logsButton := widget.NewButtonWithIcon("Логи", theme.DocumentIcon(), nil)
-	startButton := widget.NewButtonWithIcon("Старт", theme.MediaPlayIcon(), nil)
-	stopButton := widget.NewButtonWithIcon("Стоп", theme.MediaStopIcon(), nil)
-	restartButton := widget.NewButtonWithIcon("Рестарт", theme.ViewRefreshIcon(), nil)
+	detailsButton := widget.NewButtonWithIcon(i18n.T("Details"), theme.InfoIcon(), nil)
+	inspectButton := widget.NewButtonWithIcon(i18n.T("Inspect"), theme.SearchIcon(), nil)
+	logsButton := widget.NewButtonWithIcon(i18n.T("Logs"), theme.DocumentIcon(), nil)
+	startButton := widget.NewButtonWithIcon(i18n.T("Start"), theme.MediaPlayIcon(), nil)
+	stopButton := widget.NewButtonWithIcon(i18n.T("Stop"), theme.MediaStopIcon(), nil)
+	restartButton := widget.NewButtonWithIcon(i18n.T("Restart"), theme.ViewRefreshIcon(), nil)
 	favoriteButton := widget.NewButtonWithIcon("", theme.RadioButtonIcon(), nil)
 
 	startButton.Importance = widget.HighImportance
 	stopButton.Importance = widget.DangerImportance
 
-	pullButton := widget.NewButtonWithIcon("Загрузить образ", theme.DownloadIcon(), nil)
-	removeImageButton := widget.NewButtonWithIcon("Удалить образ", theme.DeleteIcon(), nil)
+	pullButton := widget.NewButtonWithIcon(i18n.T("Pull image"), theme.DownloadIcon(), nil)
+	removeImageButton := widget.NewButtonWithIcon(i18n.T("Remove image"), theme.DeleteIcon(), nil)
 	removeImageButton.Importance = widget.DangerImportance
 	removeImageButton.Disable()
 
@@ -109,7 +116,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	}
 
 	isImagesMode := func() bool {
-		return modeSelect.Selected == "Образы"
+		return modeSelect.Selected == modeImages
 	}
 
 	detailsButton.Disable()
@@ -143,10 +150,10 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			c := filteredContainers[selectedIndex]
 			if isFavoriteContainer(c.Names) {
 				favoriteButton.SetIcon(theme.RadioButtonCheckedIcon())
-				favoriteButton.SetText("В избранном")
+				favoriteButton.SetText(i18n.T("In favorites"))
 			} else {
 				favoriteButton.SetIcon(theme.RadioButtonIcon())
-				favoriteButton.SetText("В избранное")
+				favoriteButton.SetText(i18n.T("Add to favorites"))
 			}
 			return
 		}
@@ -159,7 +166,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		restartButton.Disable()
 		favoriteButton.Disable()
 		favoriteButton.SetIcon(theme.RadioButtonIcon())
-		favoriteButton.SetText("В избранное")
+		favoriteButton.SetText(i18n.T("Add to favorites"))
 	}
 
 	getSelectedContainer := func() (*system.DockerContainerInfo, bool) {
@@ -172,7 +179,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	sortContainers := func(items []system.DockerContainerInfo) {
 		switch sortSelect.Selected {
-		case "Статус":
+		case sortByStatus:
 			sort.SliceStable(items, func(i, j int) bool {
 				if items[i].State == items[j].State {
 					return items[i].Names < items[j].Names
@@ -313,22 +320,15 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		}
 
 		if count == 0 {
-			statusLabel.SetText("Статус: 0 результатов")
+			statusLabel.SetText(i18n.T("Status: 0 results"))
 			return
 		}
 
-		label := "образов"
-		if !isImagesMode() {
-			label = "контейнеров"
+		if isImagesMode() {
+			statusLabel.SetText(i18n.Tf("Status: %d images | updated %s", count, time.Now().Format("15:04:05")))
+		} else {
+			statusLabel.SetText(i18n.Tf("Status: %d containers | updated %s", count, time.Now().Format("15:04:05")))
 		}
-
-		statusLabel.SetText(
-			fmt.Sprintf(
-				"Статус: %d %s | обновлено %s",
-				count, label,
-				time.Now().Format("15:04:05"),
-			),
-		)
 	}
 
 	showErrorState := func(err error) {
@@ -344,7 +344,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		containerList.UnselectAll()
 		containerList.Refresh()
 		updateActionButtons()
-		statusLabel.SetText("Статус: ошибка загрузки — " + err.Error())
+		statusLabel.SetText(i18n.Tf("Status: load error — %s", err.Error()))
 	}
 
 	refreshContainers := func() {
@@ -387,16 +387,16 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	showContainerDetails := func(c system.DockerContainerInfo) {
 		content := container.NewVBox(
-			widget.NewLabel("Имя: "+c.Names),
-			widget.NewLabel("Образ: "+c.Image),
-			widget.NewLabel("Состояние: "+c.State),
-			widget.NewLabel("Статус: "+c.Status),
+			widget.NewLabel(i18n.T("Name")+": "+c.Names),
+			widget.NewLabel(i18n.T("Image")+": "+c.Image),
+			widget.NewLabel(i18n.T("State")+": "+c.State),
+			widget.NewLabel(i18n.T("Status")+": "+c.Status),
 			widget.NewLabel("ID: "+c.ID),
 		)
 
 		dialog.ShowCustom(
-			"Сведения о контейнере",
-			"Закрыть",
+			i18n.T("Container details"),
+			i18n.T("Close"),
 			container.NewPadded(content),
 			parent,
 		)
@@ -405,19 +405,19 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	runContainerAction := func(action string) {
 		c, ok := getSelectedContainer()
 		if !ok {
-			statusLabel.SetText("Выбери контейнер из списка")
+			statusLabel.SetText(i18n.T("Select a container from the list"))
 			updateActionButtons()
 			return
 		}
 
-		message := fmt.Sprintf("Выполнить %s для контейнера %s?", strings.ToUpper(action), c.Names)
+		message := i18n.Tf("Run %s for container %s?", strings.ToUpper(action), c.Names)
 
-		dialog.ShowConfirm("Подтверждение", message, func(confirmed bool) {
+		dialog.ShowConfirm(i18n.T("Confirmation"), message, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
 
-			statusLabel.SetText(fmt.Sprintf("Статус: выполняется %s для %s...", action, c.Names))
+			statusLabel.SetText(i18n.Tf("Status: running %s for %s...", action, c.Names))
 			detailsButton.Disable()
 			logsButton.Disable()
 			startButton.Disable()
@@ -437,7 +437,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 							ShowError(parent, err)
 						}
 
-						statusLabel.SetText("Статус: ошибка выполнения")
+						statusLabel.SetText(i18n.T("Status: action failed"))
 						updateActionButtons()
 					})
 					return
@@ -447,8 +447,8 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 				fyne.Do(func() {
 					dialog.ShowInformation(
-						"Готово",
-						fmt.Sprintf("Команда %s для %s выполнена.", strings.ToUpper(action), containerName),
+						i18n.T("Done"),
+						i18n.Tf("Command %s for %s completed.", strings.ToUpper(action), containerName),
 						parent,
 					)
 				})
@@ -460,8 +460,8 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	showContainerLogs := func(containerName string) {
 		showLogsWindow(
-			"Логи контейнера: "+containerName,
-			"Логи контейнера "+containerName,
+			i18n.Tf("Container logs: %s", containerName),
+			i18n.Tf("Logs for container %s", containerName),
 			func() (string, error) {
 				return system.GetDockerContainerLogs(containerName, cfg.DefaultLogLines)
 			},
@@ -497,15 +497,15 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	modeSelect.OnChanged = func(mode string) {
 		switch mode {
-		case "Образы":
-			subtitle.SetText("Просмотр и управление Docker-образами")
-			searchEntry.SetPlaceHolder("Поиск образа (например: nginx, ubuntu...)")
+		case modeImages:
+			subtitle.SetText(i18n.T("View and manage Docker images"))
+			searchEntry.SetPlaceHolder(i18n.T("Search images (for example: nginx, ubuntu...)"))
 			statusFilter.Hide()
 			sortSelect.Hide()
 			hideContainerButtons()
 		default:
-			subtitle.SetText("Просмотр и управление Docker-контейнерами")
-			searchEntry.SetPlaceHolder("Поиск контейнера (например: nginx, postgres...)")
+			subtitle.SetText(i18n.T("View and manage Docker containers"))
+			searchEntry.SetPlaceHolder(i18n.T("Search containers (for example: nginx, postgres...)"))
 			statusFilter.Show()
 			sortSelect.Show()
 			showContainerButtons()
@@ -525,11 +525,11 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		imageEntry.SetPlaceHolder("nginx:latest, ubuntu:22.04...")
 
 		dialog.ShowCustomConfirm(
-			"Загрузка Docker-образа",
-			"Загрузить",
-			"Отмена",
+			i18n.T("Pull a Docker image"),
+			i18n.T("Pull"),
+			i18n.T("Cancel"),
 			container.NewPadded(container.NewVBox(
-				widget.NewLabel("Введите имя образа для загрузки:"),
+				widget.NewLabel(i18n.T("Enter the name of the image to pull:")),
 				imageEntry,
 			)),
 			func(confirmed bool) {
@@ -538,7 +538,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 				}
 
 				imageName := strings.TrimSpace(imageEntry.Text)
-				statusLabel.SetText(fmt.Sprintf("Статус: загрузка %s...", imageName))
+				statusLabel.SetText(i18n.Tf("Status: pulling %s...", imageName))
 				pullButton.Disable()
 
 				go func() {
@@ -548,12 +548,12 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 						pullButton.Enable()
 						if err != nil {
 							ShowError(parent, err)
-							statusLabel.SetText("Статус: ошибка загрузки")
+							statusLabel.SetText(i18n.T("Status: pull failed"))
 							return
 						}
 
 						activity.Add("docker", "pull", imageName, "success", "")
-						dialog.ShowInformation("Готово", "Образ "+imageName+" загружен.", parent)
+						dialog.ShowInformation(i18n.T("Done"), i18n.Tf("Image %s pulled.", imageName), parent)
 						refreshImages()
 					})
 				}()
@@ -570,14 +570,14 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		imageName := img.Repository + ":" + img.Tag
 
 		dialog.ShowConfirm(
-			"Удаление образа",
-			fmt.Sprintf("Удалить образ %s?", imageName),
+			i18n.T("Remove image"),
+			i18n.Tf("Remove image %s?", imageName),
 			func(confirmed bool) {
 				if !confirmed {
 					return
 				}
 
-				statusLabel.SetText(fmt.Sprintf("Статус: удаление %s...", imageName))
+				statusLabel.SetText(i18n.Tf("Status: removing %s...", imageName))
 				removeImageButton.Disable()
 
 				go func() {
@@ -587,12 +587,12 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 						removeImageButton.Enable()
 						if err != nil {
 							ShowError(parent, err)
-							statusLabel.SetText("Статус: ошибка удаления")
+							statusLabel.SetText(i18n.T("Status: remove failed"))
 							return
 						}
 
 						activity.Add("docker", "rmi", imageName, "success", "")
-						statusLabel.SetText("Статус: образ удалён")
+						statusLabel.SetText(i18n.T("Status: image removed"))
 						refreshImages()
 					})
 				}()
@@ -604,7 +604,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	favoriteButton.OnTapped = func() {
 		c, ok := getSelectedContainer()
 		if !ok {
-			statusLabel.SetText("Выбери контейнер из списка")
+			statusLabel.SetText(i18n.T("Select a container from the list"))
 			updateActionButtons()
 			return
 		}
@@ -612,7 +612,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		if err := toggleFavoriteContainer(c.Names); err != nil {
 			activity.Add("docker", "favorite", c.Names, "failed", err.Error())
 			ShowError(parent, err)
-			statusLabel.SetText("Статус: ошибка сохранения избранного")
+			statusLabel.SetText(i18n.T("Status: could not save favorites"))
 			return
 		}
 
@@ -628,7 +628,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	detailsButton.OnTapped = func() {
 		c, ok := getSelectedContainer()
 		if !ok {
-			statusLabel.SetText("Выбери контейнер из списка")
+			statusLabel.SetText(i18n.T("Select a container from the list"))
 			updateActionButtons()
 			return
 		}
@@ -639,12 +639,12 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	inspectButton.OnTapped = func() {
 		c, ok := getSelectedContainer()
 		if !ok {
-			statusLabel.SetText("Выбери контейнер из списка")
+			statusLabel.SetText(i18n.T("Select a container from the list"))
 			updateActionButtons()
 			return
 		}
 
-		statusLabel.SetText("Статус: загрузка docker inspect...")
+		statusLabel.SetText(i18n.T("Status: loading docker inspect..."))
 
 		go func(containerName string) {
 			result, err := system.GetDockerContainerInspect(containerName)
@@ -656,7 +656,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 					} else {
 						ShowError(parent, err)
 					}
-					statusLabel.SetText("Статус: ошибка docker inspect")
+					statusLabel.SetText(i18n.T("Status: docker inspect failed"))
 					return
 				}
 
@@ -666,13 +666,13 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 				output.Disable()
 
 				dialog.ShowCustom(
-					"Инспекция контейнера: "+containerName,
-					"Закрыть",
+					i18n.Tf("Container inspect: %s", containerName),
+					i18n.T("Close"),
 					container.NewPadded(output),
 					parent,
 				)
 
-				statusLabel.SetText("Статус: docker inspect загружен")
+				statusLabel.SetText(i18n.T("Status: docker inspect loaded"))
 			})
 		}(c.Names)
 	}
@@ -680,7 +680,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	logsButton.OnTapped = func() {
 		c, ok := getSelectedContainer()
 		if !ok {
-			statusLabel.SetText("Выбери контейнер из списка")
+			statusLabel.SetText(i18n.T("Select a container from the list"))
 			updateActionButtons()
 			return
 		}
@@ -700,7 +700,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		runContainerAction("restart")
 	}
 
-	refreshButton := widget.NewButton("Обновить", func() {
+	refreshButton := widget.NewButton(i18n.T("Refresh"), func() {
 		go refreshData()
 	})
 
@@ -718,7 +718,10 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		removeImageButton,
 	)
 
-	hideContainerButtons()
+	// The tab opens in Containers mode, so show that mode's buttons. This used
+	// to call hideContainerButtons(), which left the container actions hidden
+	// and the image-only actions showing until the user toggled the mode.
+	showContainerButtons()
 
 	content := container.NewBorder(
 		container.NewPadded(

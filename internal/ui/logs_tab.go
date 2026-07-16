@@ -10,6 +10,7 @@ import (
 
 	"github.com/Lucky2356/system-hub/internal/appstate"
 	"github.com/Lucky2356/system-hub/internal/config"
+	"github.com/Lucky2356/system-hub/internal/i18n"
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
@@ -18,17 +19,17 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-const (
-	logSourceSystem   = "Система"
-	logSourceServices = "Сервисы"
-	logSourceDocker   = "Docker"
-)
-
 func buildLogsTab(cfg config.Config) fyne.CanvasObject {
-	title := widget.NewLabel("Логи")
+	// The source labels are both shown and switched on, so they are built once
+	// per tab construction rather than being package constants.
+	logSourceSystem := i18n.T("System")
+	logSourceServices := i18n.T("Services")
+	const logSourceDocker = "Docker"
+
+	title := widget.NewLabel(i18n.T("Logs"))
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("Общая работа с логами: система / сервисы / Docker")
+	subtitle := widget.NewLabel(i18n.T("Working with logs: system / services / Docker"))
 
 	sourceSelect := widget.NewSelect(
 		[]string{logSourceSystem, logSourceServices, logSourceDocker},
@@ -36,18 +37,20 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	)
 
 	targetSelect := widget.NewSelect([]string{}, nil)
-	targetSelect.PlaceHolder = "Выбери источник"
+	targetSelect.PlaceHolder = i18n.T("Choose a source")
 
 	linesEntry := widget.NewEntry()
 	linesEntry.SetText(strconv.Itoa(appstate.GetConfig().DefaultLogLines))
 
 	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Поиск по уже загруженным логам")
+	searchEntry.SetPlaceHolder(i18n.T("Search within the loaded logs"))
 
-	levelSelect := widget.NewSelect([]string{"Все", "Ошибки", "Предупреждения", "Инфо"}, nil)
-	levelSelect.SetSelected("Все")
+	levelAll := i18n.T("All")
+	levelErrors, levelWarnings, levelInfo := i18n.T("Errors"), i18n.T("Warnings"), i18n.T("Info")
+	levelSelect := widget.NewSelect([]string{levelAll, levelErrors, levelWarnings, levelInfo}, nil)
+	levelSelect.SetSelected(levelAll)
 
-	statusLabel := widget.NewLabel("Статус: ожидание")
+	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
 	infoLabel := widget.NewLabel("")
 
 	logEntry := widget.NewMultiLineEntry()
@@ -55,15 +58,15 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	logEntry.Disable()
 
 	autoRefreshCheck := widget.NewCheck(
-		fmt.Sprintf("Автообновление (%d сек)", cfg.RefreshIntervalSeconds),
+		i18n.Tf("Auto-refresh (%d s)", cfg.RefreshIntervalSeconds),
 		nil,
 	)
 	autoRefreshCheck.SetChecked(cfg.LogsAutoRefresh)
-	refreshButton := widget.NewButton("Обновить", nil)
-	reloadSourcesButton := widget.NewButton("Обновить список", nil)
-	copyButton := widget.NewButton("Копировать", nil)
-	saveButton := widget.NewButton("Сохранить в файл", nil)
-	followButton := widget.NewButton("Следить", nil)
+	refreshButton := widget.NewButton(i18n.T("Refresh"), nil)
+	reloadSourcesButton := widget.NewButton(i18n.T("Reload list"), nil)
+	copyButton := widget.NewButton(i18n.T("Copy"), nil)
+	saveButton := widget.NewButton(i18n.T("Save to file"), nil)
+	followButton := widget.NewButton(i18n.T("Follow"), nil)
 
 	var rawLogs string
 	var followStarted bool
@@ -117,7 +120,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 
 	applySearchFilter := func() {
 		query := strings.ToLower(strings.TrimSpace(searchEntry.Text))
-		level := strings.ToLower(strings.TrimSpace(levelSelect.Selected))
+		level := strings.TrimSpace(levelSelect.Selected)
 
 		if strings.TrimSpace(rawLogs) == "" {
 			logEntry.SetText("")
@@ -130,16 +133,18 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		for _, line := range lines {
 			lineLower := strings.ToLower(line)
 
+			// The level is matched against the log text, which is emitted by
+			// journald/wevtutil in English regardless of the UI language.
 			levelMatch := true
 			switch level {
-			case "ошибки":
+			case levelErrors:
 				levelMatch = strings.Contains(lineLower, "error") ||
 					strings.Contains(lineLower, "failed") ||
 					strings.Contains(lineLower, "fatal")
-			case "предупреждения":
+			case levelWarnings:
 				levelMatch = strings.Contains(lineLower, "warn") ||
 					strings.Contains(lineLower, "warning")
-			case "инфо":
+			case levelInfo:
 				levelMatch = strings.Contains(lineLower, "info")
 			}
 
@@ -158,19 +163,19 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		case logSourceSystem:
 			targetSelect.ClearSelected()
 			targetSelect.Options = []string{}
-			targetSelect.PlaceHolder = "Для системных логов выбор не нужен"
+			targetSelect.PlaceHolder = i18n.T("No target needed for system logs")
 			targetSelect.Disable()
 		case logSourceServices:
 			targetSelect.Options = []string{}
-			targetSelect.PlaceHolder = "Выбери сервис"
+			targetSelect.PlaceHolder = i18n.T("Choose a service")
 			targetSelect.Enable()
 		case logSourceDocker:
 			targetSelect.Options = []string{}
-			targetSelect.PlaceHolder = "Выбери контейнер"
+			targetSelect.PlaceHolder = i18n.T("Choose a container")
 			targetSelect.Enable()
 		default:
 			targetSelect.Options = []string{}
-			targetSelect.PlaceHolder = "Выбери источник"
+			targetSelect.PlaceHolder = i18n.T("Choose a source")
 			targetSelect.Disable()
 		}
 
@@ -182,11 +187,11 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		case logSourceSystem:
 			updateTargetState()
 			lastSelectedTarget = ""
-			statusLabel.SetText("Статус: системные логи готовы")
+			statusLabel.SetText(i18n.T("Status: system logs ready"))
 			infoLabel.SetText("")
 
 		case logSourceServices:
-			statusLabel.SetText("Статус: загрузка списка сервисов...")
+			statusLabel.SetText(i18n.T("Status: loading the service list..."))
 
 			go func() {
 				names, err := system.ListServiceNames()
@@ -196,7 +201,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 						targetSelect.ClearSelected()
 						targetSelect.Refresh()
 						lastSelectedTarget = ""
-						statusLabel.SetText("Статус: ошибка загрузки сервисов")
+						statusLabel.SetText(i18n.T("Status: could not load services"))
 						infoLabel.SetText(err.Error())
 					})
 					return
@@ -204,7 +209,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 
 				fyne.Do(func() {
 					targetSelect.Options = names
-					targetSelect.PlaceHolder = "Выбери сервис"
+					targetSelect.PlaceHolder = i18n.T("Choose a service")
 					targetSelect.Enable()
 					targetSelect.Refresh()
 
@@ -223,13 +228,13 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 						targetSelect.ClearSelected()
 					}
 
-					statusLabel.SetText(fmt.Sprintf("Статус: сервисов найдено %d", len(names)))
+					statusLabel.SetText(i18n.Tf("Status: %d services found", len(names)))
 					infoLabel.SetText("")
 				})
 			}()
 
 		case logSourceDocker:
-			statusLabel.SetText("Статус: загрузка списка контейнеров...")
+			statusLabel.SetText(i18n.T("Status: loading the container list..."))
 
 			go func() {
 				names, err := system.ListDockerContainerNames()
@@ -239,7 +244,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 						targetSelect.ClearSelected()
 						targetSelect.Refresh()
 						lastSelectedTarget = ""
-						statusLabel.SetText("Статус: ошибка загрузки контейнеров")
+						statusLabel.SetText(i18n.T("Status: could not load containers"))
 						infoLabel.SetText(err.Error())
 					})
 					return
@@ -247,7 +252,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 
 				fyne.Do(func() {
 					targetSelect.Options = names
-					targetSelect.PlaceHolder = "Выбери контейнер"
+					targetSelect.PlaceHolder = i18n.T("Choose a container")
 					targetSelect.Enable()
 					targetSelect.Refresh()
 
@@ -266,7 +271,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 						targetSelect.ClearSelected()
 					}
 
-					statusLabel.SetText(fmt.Sprintf("Статус: контейнеров найдено %d", len(names)))
+					statusLabel.SetText(i18n.Tf("Status: %d containers found", len(names)))
 					infoLabel.SetText("")
 				})
 			}()
@@ -274,7 +279,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		default:
 			updateTargetState()
 			lastSelectedTarget = ""
-			statusLabel.SetText("Статус: выбери источник логов")
+			statusLabel.SetText(i18n.T("Status: choose a log source"))
 		}
 	}
 
@@ -285,11 +290,11 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 
 		switch source {
 		case "":
-			statusLabel.SetText("Статус: выбери источник логов")
+			statusLabel.SetText(i18n.T("Status: choose a log source"))
 			return
 		case logSourceServices, logSourceDocker:
 			if target == "" {
-				statusLabel.SetText("Статус: выбери цель для логов")
+				statusLabel.SetText(i18n.T("Status: choose a log target"))
 				return
 			}
 		}
@@ -302,7 +307,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		isLoading = true
 		loadMu.Unlock()
 
-		statusLabel.SetText("Статус: загрузка логов...")
+		statusLabel.SetText(i18n.T("Status: loading logs..."))
 		infoLabel.SetText("")
 
 		go func(source, target string, lines int) {
@@ -325,14 +330,14 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 			case logSourceDocker:
 				logs, err = system.GetDockerContainerLogs(target, lines)
 			default:
-				err = fmt.Errorf("неизвестный источник логов")
+				err = fmt.Errorf("unknown log source")
 			}
 
 			if err != nil {
 				fyne.Do(func() {
 					rawLogs = ""
 					logEntry.SetText("")
-					statusLabel.SetText("Статус: ошибка загрузки логов")
+					statusLabel.SetText(i18n.T("Status: could not load logs"))
 					infoLabel.SetText(err.Error())
 				})
 				return
@@ -350,16 +355,16 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 				switch source {
 				case logSourceSystem:
 					statusLabel.SetText(
-						fmt.Sprintf(
-							"Статус: системные логи | %d строк | обновлено %s",
+						i18n.Tf(
+							"Status: system logs | %d lines | updated %s",
 							lineCount,
 							time.Now().Format("15:04:05"),
 						),
 					)
 				case logSourceServices:
 					statusLabel.SetText(
-						fmt.Sprintf(
-							"Статус: сервис %s | %d строк | обновлено %s",
+						i18n.Tf(
+							"Status: service %s | %d lines | updated %s",
 							target,
 							lineCount,
 							time.Now().Format("15:04:05"),
@@ -367,8 +372,8 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 					)
 				case logSourceDocker:
 					statusLabel.SetText(
-						fmt.Sprintf(
-							"Статус: контейнер %s | %d строк | обновлено %s",
+						i18n.Tf(
+							"Status: container %s | %d lines | updated %s",
 							target,
 							lineCount,
 							time.Now().Format("15:04:05"),
@@ -376,7 +381,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 					)
 				}
 
-				infoLabel.SetText("Фильтры применяются к уже загруженным логам")
+				infoLabel.SetText(i18n.T("Filters apply to the logs already loaded"))
 			})
 		}(source, target, lines)
 	}
@@ -394,14 +399,14 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		rawLogs = ""
 		logEntry.SetText("")
 		searchEntry.SetText("")
-		levelSelect.SetSelected("Все")
+		levelSelect.SetSelected(levelAll)
 		updateTargetState()
 		loadTargets()
 
 		if followStarted {
 			follow.Stop()
 			followStarted = false
-			followButton.SetText("Следить")
+			followButton.SetText(i18n.T("Follow"))
 		}
 	}
 
@@ -425,39 +430,39 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		if followStarted {
 			follow.Stop()
 			followStarted = false
-			followButton.SetText("Следить")
-			statusLabel.SetText("Статус: слежение остановлено")
+			followButton.SetText(i18n.T("Follow"))
+			statusLabel.SetText(i18n.T("Status: follow stopped"))
 			return
 		}
 
 		loadLogs()
 		followStarted = true
-		followButton.SetText("Слежение...")
+		followButton.SetText(i18n.T("Following..."))
 		follow.Start()
 	}
 
 	copyButton.OnTapped = func() {
 		text := logEntry.Text
 		if strings.TrimSpace(text) == "" {
-			statusLabel.SetText("Статус: нечего копировать")
+			statusLabel.SetText(i18n.T("Status: nothing to copy"))
 			return
 		}
 
 		fyne.CurrentApp().Clipboard().SetContent(text)
-		statusLabel.SetText("Статус: логи скопированы")
-		infoLabel.SetText("Скопировано: " + time.Now().Format("15:04:05"))
+		statusLabel.SetText(i18n.T("Status: logs copied"))
+		infoLabel.SetText(i18n.T("Copied") + ": " + time.Now().Format("15:04:05"))
 	}
 
 	saveButton.OnTapped = func() {
 		text := logEntry.Text
 		if strings.TrimSpace(text) == "" {
-			statusLabel.SetText("Статус: нечего сохранять")
+			statusLabel.SetText(i18n.T("Status: nothing to save"))
 			return
 		}
 
 		windows := fyne.CurrentApp().Driver().AllWindows()
 		if len(windows) == 0 {
-			statusLabel.SetText("Статус: не удалось получить окно")
+			statusLabel.SetText(i18n.T("Status: could not get a window"))
 			return
 		}
 
@@ -465,17 +470,17 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 
 		saveDialog := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
 			if err != nil {
-				statusLabel.SetText("Статус: ошибка сохранения")
+				statusLabel.SetText(i18n.T("Status: save failed"))
 				infoLabel.SetText(err.Error())
 				return
 			}
 			if writer == nil {
-				statusLabel.SetText("Статус: сохранение отменено")
+				statusLabel.SetText(i18n.T("Status: save cancelled"))
 				return
 			}
 			if _, err := io.WriteString(writer, text); err != nil {
 				_ = writer.Close()
-				statusLabel.SetText("Статус: ошибка записи файла")
+				statusLabel.SetText(i18n.T("Status: file write error"))
 				infoLabel.SetText(err.Error())
 				return
 			}
@@ -483,13 +488,13 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 			// Close reports flush errors: ignoring it can silently truncate the
 			// saved file.
 			if err := writer.Close(); err != nil {
-				statusLabel.SetText("Статус: ошибка записи файла")
+				statusLabel.SetText(i18n.T("Status: file write error"))
 				infoLabel.SetText(err.Error())
 				return
 			}
 
-			statusLabel.SetText("Статус: логи сохранены")
-			infoLabel.SetText("Сохранено: " + time.Now().Format("15:04:05"))
+			statusLabel.SetText(i18n.T("Status: logs saved"))
+			infoLabel.SetText(i18n.T("Saved") + ": " + time.Now().Format("15:04:05"))
 		}, windows[0])
 
 		saveDialog.SetFileName(fileName)
@@ -507,25 +512,25 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		widget.NewSeparator(),
 		container.NewGridWithColumns(2,
 			container.NewVBox(
-				widget.NewLabel("Источник"),
+				widget.NewLabel(i18n.T("Source")),
 				sourceSelect,
 			),
 			container.NewVBox(
-				widget.NewLabel("Цель"),
+				widget.NewLabel(i18n.T("Target")),
 				targetSelect,
 			),
 		),
 		container.NewGridWithColumns(3,
 			container.NewVBox(
-				widget.NewLabel("Количество строк"),
+				widget.NewLabel(i18n.T("Number of lines")),
 				linesEntry,
 			),
 			container.NewVBox(
-				widget.NewLabel("Поиск по тексту"),
+				widget.NewLabel(i18n.T("Text search")),
 				searchEntry,
 			),
 			container.NewVBox(
-				widget.NewLabel("Уровень"),
+				widget.NewLabel(i18n.T("Level")),
 				levelSelect,
 			),
 		),
@@ -545,8 +550,8 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 
 	sourceSelect.SetSelected(logSourceSystem)
 	updateTargetState()
-	statusLabel.SetText("Статус: системные логи готовы")
-	infoLabel.SetText("Нажми «Обновить», чтобы загрузить логи")
+	statusLabel.SetText(i18n.T("Status: system logs ready"))
+	infoLabel.SetText(i18n.T("Press «Refresh» to load the logs"))
 
 	if cfg.LogsAutoRefresh {
 		autoRefreshCheck.OnChanged(true)

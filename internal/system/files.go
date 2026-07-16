@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+
+	"github.com/Lucky2356/system-hub/internal/i18n"
 )
 
 type FileEntry struct {
@@ -28,7 +30,7 @@ func GetPresetPaths() []PresetPath {
 
 	if runtime.GOOS == "windows" {
 		paths := []PresetPath{
-			{Title: "Домашняя папка", Path: homeDir},
+			{Title: i18n.T("Home folder"), Path: homeDir},
 		}
 		if appData := os.Getenv("APPDATA"); appData != "" {
 			paths = append(paths, PresetPath{Title: "AppData (Roaming)", Path: appData})
@@ -40,7 +42,7 @@ func GetPresetPaths() []PresetPath {
 			paths = append(paths,
 				PresetPath{Title: "Windows", Path: sysRoot},
 				PresetPath{Title: "hosts / drivers etc", Path: filepath.Join(sysRoot, "System32", "drivers", "etc")},
-				PresetPath{Title: "Логи (Windows\\Logs)", Path: filepath.Join(sysRoot, "Logs")},
+				PresetPath{Title: i18n.Tf("Logs (%s)", "Windows\\Logs"), Path: filepath.Join(sysRoot, "Logs")},
 			)
 		}
 		return paths
@@ -51,8 +53,8 @@ func GetPresetPaths() []PresetPath {
 		{Title: "Systemd units (/lib/systemd/system)", Path: "/lib/systemd/system"},
 		{Title: "Nginx (/etc/nginx)", Path: "/etc/nginx"},
 		{Title: "Docker (/etc/docker)", Path: "/etc/docker"},
-		{Title: "Логи (/var/log)", Path: "/var/log"},
-		{Title: "Домашняя папка", Path: homeDir},
+		{Title: i18n.Tf("Logs (%s)", "/var/log"), Path: "/var/log"},
+		{Title: i18n.T("Home folder"), Path: homeDir},
 	}
 }
 

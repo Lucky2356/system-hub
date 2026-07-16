@@ -1,11 +1,11 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"github.com/Lucky2356/system-hub/internal/config"
+	"github.com/Lucky2356/system-hub/internal/i18n"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -26,20 +26,22 @@ func showLogsWindow(
 	logEntry.Wrapping = fyne.TextWrapOff
 	logEntry.Disable()
 
-	infoLabel := widget.NewLabel("Логи ещё не загружены")
+	infoLabel := widget.NewLabel(i18n.T("Logs are not loaded yet"))
 	autoRefreshCheck := widget.NewCheck(
-		fmt.Sprintf("Автообновление (%d сек)", cfg.RefreshIntervalSeconds),
+		i18n.Tf("Auto-refresh (%d s)", cfg.RefreshIntervalSeconds),
 		nil,
 	)
 	autoRefreshCheck.SetChecked(cfg.LogViewerAutoRefresh)
 
-	followButton := widget.NewButton("Следить", nil)
+	followButton := widget.NewButton(i18n.T("Follow"), nil)
 
 	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Поиск по тексту...")
+	searchEntry.SetPlaceHolder(i18n.T("Text search..."))
 
-	levelSelect := widget.NewSelect([]string{"Все", "Ошибки", "Предупреждения", "Инфо"}, nil)
-	levelSelect.SetSelected("Все")
+	levelAll := i18n.T("All")
+	levelErrors, levelWarnings, levelInfo := i18n.T("Errors"), i18n.T("Warnings"), i18n.T("Info")
+	levelSelect := widget.NewSelect([]string{levelAll, levelErrors, levelWarnings, levelInfo}, nil)
+	levelSelect.SetSelected(levelAll)
 
 	followStarted := false
 
@@ -47,7 +49,7 @@ func showLogsWindow(
 
 	applySearchFilter := func() {
 		query := strings.ToLower(strings.TrimSpace(searchEntry.Text))
-		level := strings.ToLower(strings.TrimSpace(levelSelect.Selected))
+		level := strings.TrimSpace(levelSelect.Selected)
 
 		if strings.TrimSpace(rawLogs) == "" {
 			logEntry.SetText("")
@@ -60,16 +62,18 @@ func showLogsWindow(
 		for _, line := range lines {
 			lineLower := strings.ToLower(line)
 
+			// The level is matched against the log text, which is emitted by
+			// journald/wevtutil in English regardless of the UI language.
 			levelMatch := true
 			switch level {
-			case "ошибки":
+			case levelErrors:
 				levelMatch = strings.Contains(lineLower, "error") ||
 					strings.Contains(lineLower, "failed") ||
 					strings.Contains(lineLower, "fatal")
-			case "предупреждения":
+			case levelWarnings:
 				levelMatch = strings.Contains(lineLower, "warn") ||
 					strings.Contains(lineLower, "warning")
-			case "инфо":
+			case levelInfo:
 				levelMatch = strings.Contains(lineLower, "info")
 			}
 
@@ -84,13 +88,13 @@ func showLogsWindow(
 	}
 
 	loadLogs := func() {
-		infoLabel.SetText("Загрузка логов...")
+		infoLabel.SetText(i18n.T("Loading logs..."))
 
 		go func() {
 			logs, err := loadFunc()
 			if err != nil {
 				fyne.Do(func() {
-					infoLabel.SetText("Ошибка загрузки логов")
+					infoLabel.SetText(i18n.T("Could not load logs"))
 					dialog.ShowError(err, logWindow)
 				})
 				return
@@ -99,12 +103,12 @@ func showLogsWindow(
 			fyne.Do(func() {
 				rawLogs = logs
 				applySearchFilter()
-				infoLabel.SetText("Обновлено: " + time.Now().Format("15:04:05"))
+				infoLabel.SetText(i18n.T("Updated") + ": " + time.Now().Format("15:04:05"))
 			})
 		}()
 	}
 
-	refreshButton := widget.NewButton("Обновить", func() {
+	refreshButton := widget.NewButton(i18n.T("Refresh"), func() {
 		loadLogs()
 	})
 
@@ -126,14 +130,14 @@ func showLogsWindow(
 		if followStarted {
 			follow.Stop()
 			followStarted = false
-			followButton.SetText("Следить")
-			infoLabel.SetText("Слежение остановлено")
+			followButton.SetText(i18n.T("Follow"))
+			infoLabel.SetText(i18n.T("Follow stopped"))
 			return
 		}
 
 		loadLogs()
 		followStarted = true
-		followButton.SetText("Слежение...")
+		followButton.SetText(i18n.T("Following..."))
 		follow.Start()
 	}
 
@@ -151,11 +155,11 @@ func showLogsWindow(
 			container.NewHBox(refreshButton, followButton, autoRefreshCheck),
 			container.NewGridWithColumns(2,
 				container.NewVBox(
-					widget.NewLabel("Поиск"),
+					widget.NewLabel(i18n.T("Search")),
 					searchEntry,
 				),
 				container.NewVBox(
-					widget.NewLabel("Уровень"),
+					widget.NewLabel(i18n.T("Level")),
 					levelSelect,
 				),
 			),

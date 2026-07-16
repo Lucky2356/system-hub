@@ -2,6 +2,8 @@ package system
 
 import (
 	"strings"
+
+	"github.com/Lucky2356/system-hub/internal/i18n"
 )
 
 // IsPermissionError recognises the many ways systemd, polkit, Docker and the
@@ -30,13 +32,12 @@ func IsPermissionError(err error) bool {
 func BuildPermissionHint(target, action, name string) string {
 	switch target {
 	case "service":
-		return "Недостаточно прав для действия " + action + " над службой " + name + ".\n\n" +
-			serviceElevationHint
+		return i18n.Tf("Not enough permissions for the %s action on service %s.", action, name) +
+			"\n\n" + serviceElevationHint()
 	case "docker":
-		return "Недостаточно прав для действия " + action + " над контейнером " + name + ".\n\n" +
-			"Проверь доступ к Docker daemon.\n" +
-			"Обычно помогает запуск от пользователя из группы docker или запуск с повышенными правами."
+		return i18n.Tf("Not enough permissions for the %s action on container %s.", action, name) +
+			"\n\n" + i18n.T("Check access to the Docker daemon.\nRunning as a member of the docker group, or with elevated privileges, usually helps.")
 	default:
-		return "Недостаточно прав для выполнения действия."
+		return i18n.T("Not enough permissions to perform this action.")
 	}
 }

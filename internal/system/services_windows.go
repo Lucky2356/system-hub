@@ -11,10 +11,13 @@ import (
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
+
+	"github.com/Lucky2356/system-hub/internal/i18n"
 )
 
-// ServiceManagerName labels the service backend in the UI.
-const ServiceManagerName = "Службы Windows"
+// ServiceManagerName labels the service backend in the UI. It is a function,
+// not a constant, because the language can change at runtime.
+func ServiceManagerName() string { return i18n.T("Windows Services") }
 
 // The systemd vocabulary the UI speaks. Only the Windows provider needs these
 // as constants: the Linux provider takes the words verbatim from systemctl's

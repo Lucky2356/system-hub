@@ -1,8 +1,9 @@
 package system
 
 import (
-	"fmt"
 	"strings"
+
+	"github.com/Lucky2356/system-hub/internal/i18n"
 )
 
 const (
@@ -14,22 +15,22 @@ func BuildProblems(stats Stats, favoriteServices []string, favoriteContainers []
 	var problems []string
 
 	if stats.RAMPercent >= DefaultRAMAlertPercent {
-		problems = append(problems, fmt.Sprintf("High RAM usage: %.1f%%", stats.RAMPercent))
+		problems = append(problems, i18n.Tf("High RAM usage: %.1f%%", stats.RAMPercent))
 	}
 
 	if stats.DiskPercent >= DefaultDiskAlertPercent {
-		problems = append(problems, fmt.Sprintf("High disk usage: %.1f%%", stats.DiskPercent))
+		problems = append(problems, i18n.Tf("High disk usage: %.1f%%", stats.DiskPercent))
 	}
 
 	if !stats.ServiceManagerAvailable {
-		problems = append(problems, ServiceManagerName+" is unavailable")
+		problems = append(problems, i18n.Tf("%s is unavailable", ServiceManagerName()))
 	} else {
 		serviceProblems := checkFavoriteServices(favoriteServices)
 		problems = append(problems, serviceProblems...)
 	}
 
 	if !stats.DockerAvailable {
-		problems = append(problems, "Docker is unavailable")
+		problems = append(problems, i18n.Tf("%s is unavailable", "Docker"))
 	} else {
 		containerProblems := checkFavoriteContainers(favoriteContainers)
 		problems = append(problems, containerProblems...)
@@ -48,7 +49,7 @@ func checkFavoriteServices(favorites []string) []string {
 
 	services, err := ListServices()
 	if err != nil {
-		return []string{"Unable to check favorite services: " + err.Error()}
+		return []string{i18n.Tf("Unable to check favorite services: %s", err.Error())}
 	}
 
 	serviceMap := make(map[string]ServiceInfo, len(services))
@@ -66,12 +67,12 @@ func checkFavoriteServices(favorites []string) []string {
 
 		svc, ok := serviceMap[name]
 		if !ok {
-			problems = append(problems, "Favorite service not found: "+name)
+			problems = append(problems, i18n.Tf("Favorite service not found: %s", name))
 			continue
 		}
 
 		if !strings.EqualFold(strings.TrimSpace(svc.ActiveState), "active") {
-			problems = append(problems, fmt.Sprintf("Service %s is %s", name, svc.ActiveState))
+			problems = append(problems, i18n.Tf("Service %s is %s", name, svc.ActiveState))
 		}
 	}
 
@@ -85,7 +86,7 @@ func checkFavoriteContainers(favorites []string) []string {
 
 	containers, err := ListDockerContainers()
 	if err != nil {
-		return []string{"Unable to check favorite containers: " + err.Error()}
+		return []string{i18n.Tf("Unable to check favorite containers: %s", err.Error())}
 	}
 
 	containerMap := make(map[string]DockerContainerInfo, len(containers))
@@ -103,12 +104,12 @@ func checkFavoriteContainers(favorites []string) []string {
 
 		c, ok := containerMap[name]
 		if !ok {
-			problems = append(problems, "Favorite container not found: "+name)
+			problems = append(problems, i18n.Tf("Favorite container not found: %s", name))
 			continue
 		}
 
 		if !strings.EqualFold(strings.TrimSpace(c.State), "running") {
-			problems = append(problems, fmt.Sprintf("Container %s is %s", name, c.State))
+			problems = append(problems, i18n.Tf("Container %s is %s", name, c.State))
 		}
 	}
 

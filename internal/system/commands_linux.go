@@ -2,13 +2,16 @@
 
 package system
 
+import "github.com/Lucky2356/system-hub/internal/i18n"
+
 // platformCommands are the systemd/journald diagnostics available on Linux.
+// The list is rebuilt on every call, so a language switch reaches it.
 func platformCommands() []SafeCommand {
 	return []SafeCommand{
 		{
 			Key:         "systemctl-list-services",
 			Title:       "systemctl list-units --type=service",
-			Description: "Показать список systemd-сервисов",
+			Description: i18n.T("Show the list of systemd services"),
 			Binary:      "systemctl",
 			BuildArgs: func(string) ([]string, error) {
 				return []string{"list-units", "--type=service", "--all", "--no-pager"}, nil
@@ -16,10 +19,10 @@ func platformCommands() []SafeCommand {
 		},
 		{
 			Key:         "systemctl-status",
-			Title:       "systemctl status <сервис>",
-			Description: "Показать статус одного systemd-сервиса",
+			Title:       "systemctl status " + i18n.T("<service>"),
+			Description: i18n.T("Show the status of a single systemd service"),
 			NeedsArg:    true,
-			ArgHint:     "Например: nginx.service",
+			ArgHint:     i18n.Tf("For example: %s", "nginx.service"),
 			Binary:      "systemctl",
 			BuildArgs: func(arg string) ([]string, error) {
 				name, err := requireServiceArg(arg)
@@ -32,7 +35,7 @@ func platformCommands() []SafeCommand {
 		{
 			Key:         "journalctl-tail",
 			Title:       "journalctl -n 100",
-			Description: "Показать последние системные логи",
+			Description: i18n.T("Show the latest system logs"),
 			Binary:      "journalctl",
 			BuildArgs: func(string) ([]string, error) {
 				return []string{"-n", "100", "--no-pager"}, nil
@@ -40,10 +43,10 @@ func platformCommands() []SafeCommand {
 		},
 		{
 			Key:         "journalctl-service",
-			Title:       "journalctl -u <сервис> -n 100",
-			Description: "Показать последние логи конкретного сервиса",
+			Title:       "journalctl -u " + i18n.T("<service>") + " -n 100",
+			Description: i18n.T("Show the latest logs for a specific service"),
 			NeedsArg:    true,
-			ArgHint:     "Например: docker.service",
+			ArgHint:     i18n.Tf("For example: %s", "docker.service"),
 			Binary:      "journalctl",
 			BuildArgs: func(arg string) ([]string, error) {
 				name, err := requireServiceArg(arg)
@@ -56,7 +59,7 @@ func platformCommands() []SafeCommand {
 		{
 			Key:         "ss-tulpn",
 			Title:       "ss -tulpn",
-			Description: "Показать слушающие порты и процессы",
+			Description: i18n.T("Show listening ports and processes"),
 			Binary:      "ss",
 			BuildArgs: func(string) ([]string, error) {
 				return []string{"-tulpn"}, nil

@@ -3,6 +3,8 @@ package config
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/Lucky2356/system-hub/internal/i18n"
 )
 
 func TestNormalize(t *testing.T) {
@@ -57,6 +59,32 @@ func TestNormalizeThemeAndSlices(t *testing.T) {
 	}
 }
 
+func TestNormalizeLanguage(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		// A config written before the field existed belongs to a user who has
+		// only ever seen the Russian UI, so it must not silently become English.
+		{"missing language migrates to russian", "", i18n.Russian},
+		{"unknown language falls back to russian", "klingon", i18n.Russian},
+		{"auto is preserved", i18n.Auto, i18n.Auto},
+		{"russian is preserved", i18n.Russian, i18n.Russian},
+		{"english is preserved", i18n.English, i18n.English},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := Config{Language: tc.in}
+			c.Normalize()
+			if c.Language != tc.want {
+				t.Errorf("Language = %q, want %q", c.Language, tc.want)
+			}
+		})
+	}
+}
+
 func TestDefaultConfig(t *testing.T) {
 	c := DefaultConfig()
 	if c.RefreshIntervalSeconds <= 0 {
@@ -64,6 +92,9 @@ func TestDefaultConfig(t *testing.T) {
 	}
 	if c.Theme != "dark" {
 		t.Errorf("default Theme = %q, want dark", c.Theme)
+	}
+	if c.Language != i18n.Russian {
+		t.Errorf("default Language = %q, want %q", c.Language, i18n.Russian)
 	}
 	if c.FavoriteServices == nil || c.FavoriteContainers == nil {
 		t.Error("favorite slices should be non-nil")

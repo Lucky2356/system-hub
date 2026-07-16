@@ -1,10 +1,11 @@
 package ui
 
 import (
-	"fmt"
+	"errors"
 	"path/filepath"
 	"strings"
 
+	"github.com/Lucky2356/system-hub/internal/i18n"
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
@@ -14,10 +15,10 @@ import (
 )
 
 func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabel("Файлы")
+	title := widget.NewLabel(i18n.T("Files"))
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("Просмотр важных директорий и конфигов")
+	subtitle := widget.NewLabel(i18n.T("Browse important directories and config files"))
 
 	presets := system.GetPresetPaths()
 	presetMap := make(map[string]string, len(presets))
@@ -31,9 +32,9 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 	pathEntry := widget.NewEntry()
 
 	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Фильтр по имени файла...")
+	searchEntry.SetPlaceHolder(i18n.T("Filter by file name..."))
 
-	statusLabel := widget.NewLabel("Статус: ожидание")
+	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
 
 	fileContent := widget.NewMultiLineEntry()
 	fileContent.Wrapping = fyne.TextWrapWord
@@ -47,7 +48,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 	updateEditMode := func(enabled bool) {
 		if enabled {
 			fileContent.Enable()
-			statusLabel.SetText("Статус: режим редактирования")
+			statusLabel.SetText(i18n.T("Status: edit mode"))
 			return
 		}
 
@@ -112,20 +113,20 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 	refreshList := func() {
 		filteredEntries = filterEntries(searchEntry.Text)
 		fileList.Refresh()
-		statusLabel.SetText(fmt.Sprintf("Статус: %d записей", len(filteredEntries)))
+		statusLabel.SetText(i18n.Tf("Status: %d entries", len(filteredEntries)))
 	}
 
 	loadPath := func(path string) {
 		path = strings.TrimSpace(path)
 		if path == "" {
-			statusLabel.SetText("Статус: путь пустой")
+			statusLabel.SetText(i18n.T("Status: the path is empty"))
 			return
 		}
 
 		entries, err := system.ListFiles(path)
 		if err != nil {
 			ShowError(parent, err)
-			statusLabel.SetText("Статус: ошибка загрузки")
+			statusLabel.SetText(i18n.T("Status: load error"))
 			return
 		}
 
@@ -136,12 +137,12 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		fileContent.SetText("")
 		updateEditMode(false)
 		refreshList()
-		statusLabel.SetText("Статус: открыта директория " + currentPath)
+		statusLabel.SetText(i18n.Tf("Status: opened directory %s", currentPath))
 	}
 
 	openSelected := func() {
 		if selectedIndex < 0 || selectedIndex >= len(filteredEntries) {
-			statusLabel.SetText("Статус: выбери файл или папку")
+			statusLabel.SetText(i18n.T("Status: select a file or folder"))
 			return
 		}
 
@@ -156,17 +157,17 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		content, err := system.ReadTextFile(item.FullPath, 1024*1024)
 		if err != nil {
 			ShowError(parent, err)
-			statusLabel.SetText("Статус: ошибка чтения файла")
+			statusLabel.SetText(i18n.T("Status: could not read the file"))
 			return
 		}
 
 		currentFilePath = item.FullPath
 		fileContent.SetText(content)
 		updateEditMode(false)
-		statusLabel.SetText("Статус: открыт файл " + item.FullPath)
+		statusLabel.SetText(i18n.Tf("Status: opened file %s", item.FullPath))
 	}
 
-	upButton := widget.NewButton("Вверх", func() {
+	upButton := widget.NewButton(i18n.T("Up"), func() {
 		if strings.TrimSpace(currentPath) == "" {
 			return
 		}
@@ -190,88 +191,93 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		loadPath(next)
 	})
 
-	openButton := widget.NewButton("Открыть", func() {
+	openButton := widget.NewButton(i18n.T("Open"), func() {
 		loadPath(pathEntry.Text)
 	})
 
-	viewButton := widget.NewButton("Просмотр", func() {
+	viewButton := widget.NewButton(i18n.T("View"), func() {
 		openSelected()
 	})
 
-	editButton := widget.NewButton("Правка", func() {
+	editButton := widget.NewButton(i18n.T("Edit"), func() {
 		if strings.TrimSpace(currentFilePath) == "" {
-			statusLabel.SetText("Статус: сначала открой файл")
+			statusLabel.SetText(i18n.T("Status: open a file first"))
 			return
 		}
 
 		updateEditMode(true)
 	})
 
-	reloadButton := widget.NewButton("Перечитать", func() {
+	reloadButton := widget.NewButton(i18n.T("Reload"), func() {
 		if strings.TrimSpace(currentFilePath) == "" {
-			statusLabel.SetText("Статус: сначала открой файл")
+			statusLabel.SetText(i18n.T("Status: open a file first"))
 			return
 		}
 
 		content, err := system.ReadTextFile(currentFilePath, 1024*1024)
 		if err != nil {
 			ShowError(parent, err)
-			statusLabel.SetText("Статус: ошибка перезагрузки файла")
+			statusLabel.SetText(i18n.T("Status: could not reload the file"))
 			return
 		}
 
 		fileContent.SetText(content)
 		updateEditMode(false)
-		statusLabel.SetText("Статус: файл перезагружен")
+		statusLabel.SetText(i18n.T("Status: file reloaded"))
 	})
 
-	saveButton := widget.NewButton("Сохранить", func() {
+	saveButton := widget.NewButton(i18n.T("Save"), func() {
 		if strings.TrimSpace(currentFilePath) == "" {
-			statusLabel.SetText("Статус: сначала открой файл")
+			statusLabel.SetText(i18n.T("Status: open a file first"))
 			return
 		}
 
 		err := system.WriteTextFile(currentFilePath, fileContent.Text)
 		if err != nil {
 			if system.IsPermissionError(err) {
-				ShowErrorMsg(parent, "Недостаточно прав для сохранения файла")
+				ShowErrorMsg(parent, i18n.T("Not enough permissions to save the file"))
 			} else {
 				ShowError(parent, err)
 			}
-			statusLabel.SetText("Статус: ошибка сохранения файла")
+			statusLabel.SetText(i18n.T("Status: could not save the file"))
 			return
 		}
 
 		updateEditMode(false)
-		statusLabel.SetText("Статус: файл сохранён")
+		statusLabel.SetText(i18n.T("Status: file saved"))
 	})
 
-	infoButton := widget.NewButton("Инфо", func() {
+	infoButton := widget.NewButton(i18n.T("Info"), func() {
 		if selectedIndex < 0 || selectedIndex >= len(filteredEntries) {
-			statusLabel.SetText("Статус: выбери файл или папку")
+			statusLabel.SetText(i18n.T("Status: select a file or folder"))
 			return
 		}
 
 		item := filteredEntries[selectedIndex]
 
-		text := fmt.Sprintf(
-			"Имя: %s\nПуть: %s\nТип: %s\nРазмер: %s",
+		kind := i18n.T("File")
+		if item.IsDir {
+			kind = i18n.T("Directory")
+		}
+
+		text := i18n.Tf(
+			"Name: %s\nPath: %s\nType: %s\nSize: %s",
 			item.Name,
 			item.FullPath,
-			map[bool]string{true: "Директория", false: "Файл"}[item.IsDir],
+			kind,
 			system.FormatFileSize(item.Size),
 		)
 
-		dialog.ShowInformation("Сведения о файле", text, parent)
+		dialog.ShowInformation(i18n.T("File details"), text, parent)
 	})
 
-	newFileButton := widget.NewButton("Новый файл", func() {
+	newFileButton := widget.NewButton(i18n.T("New file"), func() {
 		nameEntry := widget.NewEntry()
 		nameEntry.SetPlaceHolder("filename.txt")
 
-		dialog.ShowCustomConfirm("Новый файл", "Создать", "Отмена",
+		dialog.ShowCustomConfirm(i18n.T("New file"), i18n.T("Create"), i18n.T("Cancel"),
 			container.NewPadded(container.NewVBox(
-				widget.NewLabel("Введите имя файла в текущей директории:"),
+				widget.NewLabel(i18n.T("Enter a file name in the current directory:")),
 				nameEntry,
 			)),
 			func(confirmed bool) {
@@ -283,20 +289,20 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 					ShowError(parent, err)
 					return
 				}
-				statusLabel.SetText("Статус: файл создан")
+				statusLabel.SetText(i18n.T("Status: file created"))
 				loadPath(currentPath)
 			},
 			parent,
 		)
 	})
 
-	newDirButton := widget.NewButton("Новая папка", func() {
+	newDirButton := widget.NewButton(i18n.T("New folder"), func() {
 		nameEntry := widget.NewEntry()
 		nameEntry.SetPlaceHolder("newdir")
 
-		dialog.ShowCustomConfirm("Новая директория", "Создать", "Отмена",
+		dialog.ShowCustomConfirm(i18n.T("New directory"), i18n.T("Create"), i18n.T("Cancel"),
 			container.NewPadded(container.NewVBox(
-				widget.NewLabel("Введите имя директории:"),
+				widget.NewLabel(i18n.T("Enter a directory name:")),
 				nameEntry,
 			)),
 			func(confirmed bool) {
@@ -308,16 +314,16 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 					ShowError(parent, err)
 					return
 				}
-				statusLabel.SetText("Статус: директория создана")
+				statusLabel.SetText(i18n.T("Status: directory created"))
 				loadPath(currentPath)
 			},
 			parent,
 		)
 	})
 
-	renameButton := widget.NewButton("Переименовать", func() {
+	renameButton := widget.NewButton(i18n.T("Rename"), func() {
 		if selectedIndex < 0 || selectedIndex >= len(filteredEntries) {
-			statusLabel.SetText("Статус: выбери файл или папку")
+			statusLabel.SetText(i18n.T("Status: select a file or folder"))
 			return
 		}
 
@@ -325,9 +331,9 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		nameEntry := widget.NewEntry()
 		nameEntry.SetText(item.Name)
 
-		dialog.ShowCustomConfirm("Переименование", "Переименовать", "Отмена",
+		dialog.ShowCustomConfirm(i18n.T("Rename"), i18n.T("Rename"), i18n.T("Cancel"),
 			container.NewPadded(container.NewVBox(
-				widget.NewLabel("Новое имя для "+item.Name+":"),
+				widget.NewLabel(i18n.Tf("New name for %s:", item.Name)),
 				nameEntry,
 			)),
 			func(confirmed bool) {
@@ -337,44 +343,45 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 				newPath := filepath.Join(currentPath, strings.TrimSpace(nameEntry.Text))
 				if err := system.RenameFile(item.FullPath, newPath); err != nil {
 					if system.IsPermissionError(err) {
-						ShowErrorMsg(parent, "Недостаточно прав для переименования")
+						ShowErrorMsg(parent, i18n.T("Not enough permissions to rename"))
 					} else {
 						ShowError(parent, err)
 					}
 					return
 				}
-				statusLabel.SetText("Статус: переименовано")
+				statusLabel.SetText(i18n.T("Status: renamed"))
 				loadPath(currentPath)
 			},
 			parent,
 		)
 	})
 
-	deleteButton := widget.NewButton("Удалить", func() {
+	deleteButton := widget.NewButton(i18n.T("Delete"), func() {
 		if selectedIndex < 0 || selectedIndex >= len(filteredEntries) {
-			statusLabel.SetText("Статус: выбери файл или папку")
+			statusLabel.SetText(i18n.T("Status: select a file or folder"))
 			return
 		}
 
 		item := filteredEntries[selectedIndex]
-		label := "файл"
+
+		message := i18n.Tf("Delete file %s?", item.Name)
 		if item.IsDir {
-			label = "директорию (только пустую)"
+			message = i18n.Tf("Delete directory %s? Only empty directories can be removed.", item.Name)
 		}
 
-		dialog.ShowConfirm("Удаление", fmt.Sprintf("Удалить %s %s?", label, item.Name), func(confirmed bool) {
+		dialog.ShowConfirm(i18n.T("Delete"), message, func(confirmed bool) {
 			if !confirmed {
 				return
 			}
 			if err := system.DeleteFile(item.FullPath); err != nil {
 				if system.IsPermissionError(err) {
-					ShowErrorMsg(parent, "Недостаточно прав для удаления")
+					ShowErrorMsg(parent, i18n.T("Not enough permissions to delete"))
 				} else {
 					ShowError(parent, err)
 				}
 				return
 			}
-			statusLabel.SetText("Статус: удалено")
+			statusLabel.SetText(i18n.T("Status: deleted"))
 			currentFilePath = ""
 			fileContent.SetText("")
 			loadPath(currentPath)
@@ -395,7 +402,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 
 	fileListContainer := container.NewBorder(
 		container.NewVBox(
-			widget.NewLabel("Директория"),
+			widget.NewLabel(i18n.T("Directory")),
 			presetSelect,
 			pathEntry,
 			searchEntry,
@@ -424,7 +431,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 	RegisterFilesOpener(func(path string) error {
 		path = strings.TrimSpace(path)
 		if path == "" {
-			return fmt.Errorf("путь пустой")
+			return errors.New(i18n.T("the path is empty"))
 		}
 
 		dir := filepath.Dir(path)
@@ -439,7 +446,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		currentFilePath = path
 		fileContent.SetText(content)
 		updateEditMode(false)
-		statusLabel.SetText("Статус: открыт файл " + path)
+		statusLabel.SetText(i18n.Tf("Status: opened file %s", path))
 
 		return nil
 	})

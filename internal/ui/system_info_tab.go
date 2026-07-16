@@ -5,24 +5,25 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/Lucky2356/system-hub/internal/i18n"
 	"github.com/Lucky2356/system-hub/internal/system"
 )
 
 func NewSystemInfoTab(w fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabelWithStyle("О системе", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
+	title := widget.NewLabelWithStyle(i18n.T("System Info"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 
 	form := widget.NewForm(
-		widget.NewFormItem("Имя хоста", widget.NewLabel("")),
-		widget.NewFormItem("ОС", widget.NewLabel("")),
-		widget.NewFormItem("Платформа", widget.NewLabel("")),
-		widget.NewFormItem("Версия платформы", widget.NewLabel("")),
-		widget.NewFormItem("Ядро", widget.NewLabel("")),
-		widget.NewFormItem("Версия ядра", widget.NewLabel("")),
-		widget.NewFormItem("Архитектура", widget.NewLabel("")),
-		widget.NewFormItem("Текущий пользователь", widget.NewLabel("")),
-		widget.NewFormItem("Аптайм", widget.NewLabel("")),
-		widget.NewFormItem("Время загрузки", widget.NewLabel("")),
-		widget.NewFormItem("Версия Go", widget.NewLabel("")),
+		widget.NewFormItem(i18n.T("Hostname"), widget.NewLabel("")),
+		widget.NewFormItem(i18n.T("OS"), widget.NewLabel("")),
+		widget.NewFormItem(i18n.T("Platform"), widget.NewLabel("")),
+		widget.NewFormItem(i18n.T("Platform version"), widget.NewLabel("")),
+		widget.NewFormItem(i18n.T("Kernel"), widget.NewLabel("")),
+		widget.NewFormItem(i18n.T("Kernel version"), widget.NewLabel("")),
+		widget.NewFormItem(i18n.T("Architecture"), widget.NewLabel("")),
+		widget.NewFormItem(i18n.T("Current user"), widget.NewLabel("")),
+		widget.NewFormItem(i18n.T("Uptime"), widget.NewLabel("")),
+		widget.NewFormItem(i18n.T("Boot time"), widget.NewLabel("")),
+		widget.NewFormItem(i18n.T("Go version"), widget.NewLabel("")),
 	)
 
 	statusLabel := widget.NewLabel("")
@@ -44,7 +45,7 @@ func NewSystemInfoTab(w fyne.Window) fyne.CanvasObject {
 		setFormValue(form, 9, info.BootTime)
 		setFormValue(form, 10, info.GoVersion)
 
-		statusLabel.SetText("Информация загружена")
+		statusLabel.SetText(i18n.T("Information loaded"))
 	}
 
 	refresh := func() {
@@ -52,13 +53,13 @@ func NewSystemInfoTab(w fyne.Window) fyne.CanvasObject {
 		updateForm(info)
 	}
 
-	refreshBtn := widget.NewButton("Обновить", func() {
+	refreshBtn := widget.NewButton(i18n.T("Refresh"), func() {
 		refresh()
 	})
 
-	copyBtn := widget.NewButton("Копировать", func() {
+	copyBtn := widget.NewButton(i18n.T("Copy"), func() {
 		fyne.CurrentApp().Clipboard().SetContent(lastInfo.ToMultilineString())
-		statusLabel.SetText("Скопировано в буфер обмена")
+		statusLabel.SetText(i18n.T("Copied to the clipboard"))
 	})
 
 	buttons := container.NewHBox(refreshBtn, copyBtn)
@@ -87,7 +88,7 @@ func setFormValue(form *widget.Form, index int, value string) {
 	}
 
 	if value == "" {
-		value = "н/д"
+		value = i18n.T("n/a")
 	}
 	label.SetText(value)
 }

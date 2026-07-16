@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Lucky2356/system-hub/internal/appstate"
+	"github.com/Lucky2356/system-hub/internal/i18n"
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
@@ -18,25 +19,51 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// Sort keys for filterProcs/filterPorts. The Select shows translated labels, so
+// the sort criterion is carried as one of these stable keys instead.
+const (
+	sortKeyCPU     = "cpu"
+	sortKeyMemory  = "memory"
+	sortKeyPID     = "pid"
+	sortKeyName    = "name"
+	sortKeyPort    = "port"
+	sortKeyProcess = "process"
+)
+
 func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabel("Процессы")
+	title := widget.NewLabel(i18n.T("Processes"))
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("Просмотр процессов и прослушиваемых портов")
+	subtitle := widget.NewLabel(i18n.T("View processes and listening ports"))
 
-	modeSelect := widget.NewSelect([]string{"Топ процессов", "Прослушиваемые порты"}, nil)
-	modeSelect.SetSelected("Топ процессов")
+	modeProcesses, modePorts := i18n.T("Top processes"), i18n.T("Listening ports")
+	modeSelect := widget.NewSelect([]string{modeProcesses, modePorts}, nil)
+	modeSelect.SetSelected(modeProcesses)
 
 	searchEntry := widget.NewEntry()
-	searchEntry.SetPlaceHolder("Поиск по имени, PID, порту...")
+	searchEntry.SetPlaceHolder(i18n.T("Search by name, PID, port..."))
 
-	sortSelect := widget.NewSelect([]string{"CPU", "Память", "PID", "Имя"}, nil)
-	sortSelect.SetSelected("CPU")
+	// Translated label -> stable sort key.
+	sortKeys := map[string]string{
+		"CPU":             sortKeyCPU,
+		i18n.T("Memory"):  sortKeyMemory,
+		"PID":             sortKeyPID,
+		i18n.T("Name"):    sortKeyName,
+		i18n.T("Port"):    sortKeyPort,
+		i18n.T("Process"): sortKeyProcess,
+	}
+	procSortLabels := []string{"CPU", i18n.T("Memory"), "PID", i18n.T("Name")}
+	portSortLabels := []string{i18n.T("Port"), i18n.T("Process"), "PID"}
 
-	statusLabel := widget.NewLabel("Статус: ожидание")
+	sortSelect := widget.NewSelect(procSortLabels, nil)
+	sortSelect.SetSelected(procSortLabels[0])
+
+	selectedSortKey := func() string { return sortKeys[sortSelect.Selected] }
+
+	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
 
 	autoRefreshCheck := widget.NewCheck(
-		fmt.Sprintf("Автообновление (%d сек)", appstate.GetConfig().RefreshIntervalSeconds),
+		i18n.Tf("Auto-refresh (%d s)", appstate.GetConfig().RefreshIntervalSeconds),
 		nil,
 	)
 	autoRefreshCheck.SetChecked(false)
@@ -47,13 +74,13 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 	var filteredPorts []system.PortProcessInfo
 	selectedIndex := -1
 
-	detailsButton := widget.NewButton("Подробнее", nil)
+	detailsButton := widget.NewButton(i18n.T("Details"), nil)
 	detailsButton.Disable()
-	killButton := widget.NewButton("Завершить", nil)
+	killButton := widget.NewButton(i18n.T("Kill"), nil)
 	killButton.Disable()
 
 	isPortsMode := func() bool {
-		return modeSelect.Selected == "Прослушиваемые порты"
+		return modeSelect.Selected == modePorts
 	}
 
 	updateButtons := func() {
@@ -157,9 +184,9 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 
 	refreshList := func() {
 		if isPortsMode() {
-			filteredPorts = filterPorts(searchEntry.Text, allPorts, sortSelect.Selected)
+			filteredPorts = filterPorts(searchEntry.Text, allPorts, selectedSortKey())
 		} else {
-			filteredProcs = filterProcs(searchEntry.Text, allProcs, sortSelect.Selected)
+			filteredProcs = filterProcs(searchEntry.Text, allProcs, selectedSortKey())
 		}
 		list.Refresh()
 		updateButtons()
@@ -172,8 +199,8 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 		}
 
 		statusLabel.SetText(
-			fmt.Sprintf(
-				"Статус: %d записей | обновлено %s",
+			i18n.Tf(
+				"Status: %d entries | updated %s",
 				count,
 				time.Now().Format("15:04:05"),
 			),
@@ -185,7 +212,7 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 			items, err := system.ListListeningPorts()
 			if err != nil {
 				fyne.Do(func() {
-					statusLabel.SetText("Статус: ошибка загрузки — " + err.Error())
+					statusLabel.SetText(i18n.Tf("Status: load error — %s", err.Error()))
 					allPorts = nil
 					filteredPorts = nil
 					selectedIndex = -1
@@ -202,7 +229,7 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 			procs, err := system.ListTopProcesses(200)
 			if err != nil {
 				fyne.Do(func() {
-					statusLabel.SetText("Статус: ошибка загрузки — " + err.Error())
+					statusLabel.SetText(i18n.Tf("Status: load error — %s", err.Error()))
 					allProcs = nil
 					filteredProcs = nil
 					selectedIndex = -1
@@ -237,14 +264,14 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 
 	modeSelect.OnChanged = func(mode string) {
 		switch mode {
-		case "Топ процессов":
-			sortSelect.Options = []string{"CPU", "Память", "PID", "Имя"}
-			sortSelect.SetSelected("CPU")
-			subtitle.SetText("Просмотр процессов по нагрузке на CPU")
-		case "Прослушиваемые порты":
-			sortSelect.Options = []string{"Порт", "Процесс", "PID"}
-			sortSelect.SetSelected("Порт")
-			subtitle.SetText("Просмотр прослушиваемых портов и процессов")
+		case modeProcesses:
+			sortSelect.Options = procSortLabels
+			sortSelect.SetSelected(procSortLabels[0])
+			subtitle.SetText(i18n.T("View processes by CPU load"))
+		case modePorts:
+			sortSelect.Options = portSortLabels
+			sortSelect.SetSelected(portSortLabels[0])
+			subtitle.SetText(i18n.T("View listening ports and their processes"))
 		}
 		selectedIndex = -1
 		list.UnselectAll()
@@ -258,33 +285,33 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 	detailsButton.OnTapped = func() {
 		if isPortsMode() {
 			if selectedIndex < 0 || selectedIndex >= len(filteredPorts) {
-				statusLabel.SetText("Выбери запись из списка")
+				statusLabel.SetText(i18n.T("Select an entry from the list"))
 				updateButtons()
 				return
 			}
 			item := filteredPorts[selectedIndex]
 			details := system.GetPortProcessDetails(item)
 			dialog.ShowCustom(
-				"Сведения о порте и процессе",
-				"Закрыть",
+				i18n.T("Port and process details"),
+				i18n.T("Close"),
 				container.NewPadded(widget.NewLabel(details)),
 				parent,
 			)
 		} else {
 			if selectedIndex < 0 || selectedIndex >= len(filteredProcs) {
-				statusLabel.SetText("Выбери процесс из списка")
+				statusLabel.SetText(i18n.T("Select a process from the list"))
 				updateButtons()
 				return
 			}
 			p := filteredProcs[selectedIndex]
-			details := fmt.Sprintf(
-				"Процесс: %s\nPID: %d\nCPU: %.1f%%\nПамять: %s (%.1f%%)",
+			details := i18n.Tf(
+				"Process: %s\nPID: %d\nCPU: %.1f%%\nMemory: %s (%.1f%%)",
 				p.ProcessName, p.PID, p.CPUPercent,
 				system.FormatBytes(p.MemoryBytes), p.MemoryPercent,
 			)
 			dialog.ShowCustom(
-				"Сведения о процессе",
-				"Закрыть",
+				i18n.T("Process details"),
+				i18n.T("Close"),
 				container.NewPadded(widget.NewLabel(details)),
 				parent,
 			)
@@ -295,13 +322,13 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 		pid := getSelectedPID()
 		name := getSelectedName()
 		if pid <= 0 {
-			statusLabel.SetText("Невозможно завершить процесс")
+			statusLabel.SetText(i18n.T("This process cannot be killed"))
 			return
 		}
 
 		dialog.ShowConfirm(
-			"Подтверждение",
-			fmt.Sprintf("Завершить процесс %s (PID %d)?", name, pid),
+			i18n.T("Confirmation"),
+			i18n.Tf("Kill process %s (PID %d)?", name, pid),
 			func(confirm bool) {
 				if !confirm {
 					return
@@ -311,13 +338,13 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 					fyne.Do(func() {
 						if err != nil {
 							if system.IsPermissionError(err) {
-								ShowErrorMsg(parent, "Недостаточно прав для завершения процесса")
+								ShowErrorMsg(parent, i18n.T("Not enough permissions to kill the process"))
 							} else {
 								ShowError(parent, err)
 							}
 							return
 						}
-						statusLabel.SetText("Процесс завершён")
+						statusLabel.SetText(i18n.T("Process killed"))
 						refreshData()
 					})
 				}()
@@ -326,7 +353,7 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 		)
 	}
 
-	refreshButton := widget.NewButton("Обновить", func() {
+	refreshButton := widget.NewButton(i18n.T("Refresh"), func() {
 		go refreshData()
 	})
 
@@ -357,7 +384,7 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 		container.NewPadded(list),
 	)
 
-	modeSelect.SetSelected("Топ процессов")
+	modeSelect.SetSelected(modeProcesses)
 	RegisterRefresh("Processes", refreshData)
 
 	return content
@@ -384,14 +411,14 @@ func filterPorts(query string, items []system.PortProcessInfo, sortBy string) []
 	}
 
 	switch sortBy {
-	case "Процесс":
+	case sortKeyProcess:
 		sort.SliceStable(result, func(i, j int) bool {
 			if result[i].ProcessName == result[j].ProcessName {
 				return result[i].LocalPort < result[j].LocalPort
 			}
 			return result[i].ProcessName < result[j].ProcessName
 		})
-	case "PID":
+	case sortKeyPID:
 		sort.SliceStable(result, func(i, j int) bool {
 			if result[i].PID == result[j].PID {
 				return result[i].LocalPort < result[j].LocalPort
@@ -426,21 +453,21 @@ func filterProcs(query string, items []system.ProcessUsageInfo, sortBy string) [
 	}
 
 	switch sortBy {
-	case "Память":
+	case sortKeyMemory:
 		sort.SliceStable(result, func(i, j int) bool {
 			if result[i].MemoryBytes == result[j].MemoryBytes {
 				return result[i].ProcessName < result[j].ProcessName
 			}
 			return result[i].MemoryBytes > result[j].MemoryBytes
 		})
-	case "PID":
+	case sortKeyPID:
 		sort.SliceStable(result, func(i, j int) bool {
 			if result[i].PID == result[j].PID {
 				return result[i].ProcessName < result[j].ProcessName
 			}
 			return result[i].PID < result[j].PID
 		})
-	case "Имя":
+	case sortKeyName:
 		sort.SliceStable(result, func(i, j int) bool {
 			return result[i].ProcessName < result[j].ProcessName
 		})

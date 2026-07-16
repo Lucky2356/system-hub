@@ -36,9 +36,9 @@ func TestBuildProblemsFlagsThresholdsAndAvailability(t *testing.T) {
 	}
 
 	joined := strings.ToLower(strings.Join(problems, "|"))
-	// The service manager is named per platform (systemd / Службы Windows), so
+	// The service manager is named per platform (systemd / Windows Services), so
 	// assert on that name rather than hardcoding one platform's.
-	for _, want := range []string{"ram", "disk", strings.ToLower(ServiceManagerName), "docker"} {
+	for _, want := range []string{"ram", "disk", strings.ToLower(ServiceManagerName()), "docker"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("expected a problem mentioning %q, got %v", want, problems)
 		}

@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Lucky2356/system-hub/internal/i18n"
+
 	"fyne.io/fyne/v2"
 )
 
@@ -36,7 +38,7 @@ func notifyProblems(problems []string) {
 
 		notifiedAt[p] = now
 		fyne.CurrentApp().SendNotification(&fyne.Notification{
-			Title:   "System Hub: предупреждение",
+			Title:   "System Hub: " + i18n.T("warning"),
 			Content: p,
 		})
 	}

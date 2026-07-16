@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- English interface alongside Russian (`internal/i18n`), with a switcher in
+  Settings that applies without a restart. `language` config option accepts
+  `ru` (default), `en` or `auto` (follow the OS locale). Configs written before
+  the option existed keep the Russian UI.
+- Tests that parse the source and fail on a missing, unused, or format-verb-
+  mismatched translation, so an untranslated string cannot reach a release.
 - `--version` flag; version is injected at build time via ldflags (`internal/version`).
 - Unit tests for parsers, formatters and validators (`internal/system`, `internal/config`).
 - GitHub Actions: CI (vet/build/test/govulncheck) and Release (builds `.exe`, `.deb`, `.rpm` on `v*` tags).
@@ -21,13 +27,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `docker pull` no longer subject to the 30-second command timeout.
 - Per-core CPU widgets are updated in place instead of being rebuilt every tick.
 - Dashboard is scrollable on small windows.
-- Interface language unified to Russian.
+- Interface strings moved into a translation catalog; the source strings are now
+  English keys, and Russian is a translation of them.
 - RPM specs: added missing Fyne build dependencies (GL/X11/xkbcommon), CGO and
   version injection.
 - Makefile: version injection, CGO-correct cross targets, `make packages`
   (deb+rpm via nfpm).
 
 ### Fixed
+- Docker tab opened in Containers mode but showed the image-only actions: the
+  container buttons stayed hidden until the mode was toggled.
 - Compilation error in `internal/ui/window.go` (self-referencing button variable).
 - Goroutine leak: dashboard auto-refresh now stops when the window closes.
 - Theme selection in Settings now applies dark theme without restart.

@@ -3,6 +3,8 @@ package system
 import (
 	"fmt"
 	"strings"
+
+	"github.com/Lucky2356/system-hub/internal/i18n"
 )
 
 // SafeCommand is a read-only diagnostic command the user can run from the
@@ -31,7 +33,7 @@ func dockerCommands() []SafeCommand {
 		{
 			Key:         "docker-ps",
 			Title:       "docker ps -a",
-			Description: "Показать все контейнеры Docker",
+			Description: i18n.T("Show all Docker containers"),
 			Binary:      "docker",
 			BuildArgs: func(string) ([]string, error) {
 				return []string{"ps", "-a"}, nil
@@ -40,7 +42,7 @@ func dockerCommands() []SafeCommand {
 		{
 			Key:         "docker-images",
 			Title:       "docker images",
-			Description: "Показать Docker-образы",
+			Description: i18n.T("Show Docker images"),
 			Binary:      "docker",
 			BuildArgs: func(string) ([]string, error) {
 				return []string{"images"}, nil
@@ -61,7 +63,7 @@ func RunSafeCommand(key, arg string) (string, error) {
 	}
 
 	if selected == nil {
-		return "", fmt.Errorf("неизвестная команда: %s", key)
+		return "", fmt.Errorf("unknown command: %s", key)
 	}
 
 	args, err := selected.BuildArgs(arg)
@@ -78,7 +80,7 @@ func RunSafeCommand(key, arg string) (string, error) {
 	}
 
 	if len(output) == 0 {
-		return "Нет вывода", nil
+		return i18n.T("No output"), nil
 	}
 
 	return string(output), nil
