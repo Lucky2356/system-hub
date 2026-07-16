@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Lucky2356/system-hub/internal/appstate"
@@ -700,39 +701,25 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 
 	go refreshStats(true)
 
-	stopDashboardRefresh := make(chan struct{})
-	if appstate.GetConfig().DashboardAutoRefresh {
-		go func() {
-			interval := time.Duration(appstate.GetConfig().RefreshIntervalSeconds) * time.Second
-			if interval <= 0 {
-				interval = 2 * time.Second
-			}
-			ticker := time.NewTicker(interval)
-			defer ticker.Stop()
+	// Heavy metrics (systemctl/docker listing, full process scan, sensors) are
+	// refreshed at most every ~5s regardless of the light poll rate, so the
+	// monitor does not itself become a load source.
+	const heavyEvery = 5 * time.Second
+	var heavyMu sync.Mutex
+	lastHeavy := time.Now()
 
-			// Heavy metrics (systemctl/docker listing, full process scan) are
-			// refreshed at most every ~5s regardless of the light poll rate, so
-			// the monitor does not itself become a load source.
-			const heavyEvery = 5 * time.Second
-			lastHeavy := time.Now()
+	autoRefresh := newAutoRefresher(func() {
+		heavyMu.Lock()
+		heavy := time.Since(lastHeavy) >= heavyEvery
+		if heavy {
+			lastHeavy = time.Now()
+		}
+		heavyMu.Unlock()
 
-			for {
-				select {
-				case <-ticker.C:
-					heavy := time.Since(lastHeavy) >= heavyEvery
-					if heavy {
-						lastHeavy = time.Now()
-					}
-					refreshStats(heavy)
-				case <-stopDashboardRefresh:
-					return
-				}
-			}
-		}()
-	}
-
-	// Stop the background poller when the window closes to avoid a goroutine leak.
-	RegisterCloser(func() { close(stopDashboardRefresh) })
+		refreshStats(heavy)
+	})
+	RegisterCloser(autoRefresh.Stop)
+	autoRefresh.SetEnabled(appstate.GetConfig().DashboardAutoRefresh)
 
 	RegisterRefresh("Dashboard", func() { refreshStats(true) })
 

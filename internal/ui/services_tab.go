@@ -54,8 +54,6 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		nil,
 	)
 	autoRefreshCheck.SetChecked(cfg.ServicesAutoRefresh)
-	stopAutoRefresh := make(chan struct{})
-	autoRefreshStarted := false
 
 	detailsButton := widget.NewButton("Подробнее", nil)
 	openUnitButton := widget.NewButton("Юнит-файл", nil)
@@ -371,41 +369,10 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		refreshList()
 	}
 
-	autoRefreshCheck.OnChanged = func(checked bool) {
-		if !checked {
-			if autoRefreshStarted {
-				close(stopAutoRefresh)
-				autoRefreshStarted = false
-			}
-			return
-		}
-
-		if autoRefreshStarted {
-			return
-		}
-		autoRefreshStarted = true
-		stopAutoRefresh = make(chan struct{})
-
-		go func() {
-			ticker := time.NewTicker(time.Duration(appstate.GetConfig().RefreshIntervalSeconds) * time.Second)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ticker.C:
-					if autoRefreshCheck.Checked {
-						go refreshServices()
-					}
-				case <-stopAutoRefresh:
-					return
-				}
-			}
-		}()
-	}
-
-	if cfg.ServicesAutoRefresh {
-		autoRefreshCheck.OnChanged(true)
-	}
+	autoRefresh := newAutoRefresher(refreshServices)
+	RegisterCloser(autoRefresh.Stop)
+	autoRefreshCheck.OnChanged = autoRefresh.SetEnabled
+	autoRefresh.SetEnabled(cfg.ServicesAutoRefresh)
 
 	favoriteButton.OnTapped = func() {
 		svc, ok := getSelectedService()

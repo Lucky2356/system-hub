@@ -46,8 +46,6 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 	var allPorts []system.PortProcessInfo
 	var filteredPorts []system.PortProcessInfo
 	selectedIndex := -1
-	autoRefreshStarted := false
-	stopAutoRefresh := make(chan struct{})
 
 	detailsButton := widget.NewButton("Подробнее", nil)
 	detailsButton.Disable()
@@ -253,36 +251,9 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 		refreshData()
 	}
 
-	autoRefreshCheck.OnChanged = func(checked bool) {
-		if !checked {
-			if autoRefreshStarted {
-				close(stopAutoRefresh)
-				autoRefreshStarted = false
-			}
-			return
-		}
-		if autoRefreshStarted {
-			return
-		}
-		autoRefreshStarted = true
-		stopAutoRefresh = make(chan struct{})
-
-		go func() {
-			ticker := time.NewTicker(time.Duration(appstate.GetConfig().RefreshIntervalSeconds) * time.Second)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ticker.C:
-					if autoRefreshCheck.Checked {
-						go refreshData()
-					}
-				case <-stopAutoRefresh:
-					return
-				}
-			}
-		}()
-	}
+	autoRefresh := newAutoRefresher(refreshData)
+	RegisterCloser(autoRefresh.Stop)
+	autoRefreshCheck.OnChanged = autoRefresh.SetEnabled
 
 	detailsButton.OnTapped = func() {
 		if isPortsMode() {

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -147,43 +146,15 @@ func collectStats(heavy bool) (Stats, error) {
 	return result, nil
 }
 
+// getSystemUptime reads uptime through gopsutil on every platform. It must not
+// shell out: this runs on every dashboard tick, and spawning a process here
+// previously flashed a console window on Windows several times a minute.
 func getSystemUptime() (uint64, error) {
-	if runtime.GOOS == "windows" {
-		return getWindowsUptime()
-	}
-
 	hostInfo, err := host.Info()
 	if err != nil {
 		return 0, err
 	}
 	return hostInfo.Uptime, nil
-}
-
-func getWindowsUptime() (uint64, error) {
-	output, err := runCmd("powershell",
-		"-NoProfile",
-		"-Command",
-		`(Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime | Select-Object -ExpandProperty TotalSeconds`,
-	)
-	if err != nil {
-		return 0, err
-	}
-
-	text := strings.TrimSpace(string(output))
-	if text == "" {
-		return 0, fmt.Errorf("empty uptime output")
-	}
-
-	seconds, err := strconv.ParseFloat(text, 64)
-	if err != nil {
-		return 0, fmt.Errorf("parse uptime: %w", err)
-	}
-
-	if seconds < 0 {
-		return 0, fmt.Errorf("invalid uptime")
-	}
-
-	return uint64(seconds), nil
 }
 
 func getDiskPath() string {

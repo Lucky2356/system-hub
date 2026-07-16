@@ -58,8 +58,6 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		nil,
 	)
 	autoRefreshCheck.SetChecked(cfg.DockerAutoRefresh)
-	stopAutoRefresh := make(chan struct{})
-	autoRefreshStarted := false
 
 	detailsButton := widget.NewButton("Подробнее", nil)
 	inspectButton := widget.NewButton("Инспекция", nil)
@@ -508,41 +506,10 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		refreshData()
 	}
 
-	autoRefreshCheck.OnChanged = func(checked bool) {
-		if !checked {
-			if autoRefreshStarted {
-				close(stopAutoRefresh)
-				autoRefreshStarted = false
-			}
-			return
-		}
-
-		if autoRefreshStarted {
-			return
-		}
-		autoRefreshStarted = true
-		stopAutoRefresh = make(chan struct{})
-
-		go func() {
-			ticker := time.NewTicker(time.Duration(appstate.GetConfig().RefreshIntervalSeconds) * time.Second)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ticker.C:
-					if autoRefreshCheck.Checked {
-						go refreshData()
-					}
-				case <-stopAutoRefresh:
-					return
-				}
-			}
-		}()
-	}
-
-	if cfg.DockerAutoRefresh {
-		autoRefreshCheck.OnChanged(true)
-	}
+	autoRefresh := newAutoRefresher(refreshData)
+	RegisterCloser(autoRefresh.Stop)
+	autoRefreshCheck.OnChanged = autoRefresh.SetEnabled
+	autoRefresh.SetEnabled(cfg.DockerAutoRefresh)
 
 	pullButton.OnTapped = func() {
 		imageEntry := widget.NewEntry()

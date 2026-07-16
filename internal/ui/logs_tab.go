@@ -66,11 +66,8 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	followButton := widget.NewButton("Следить", nil)
 
 	var rawLogs string
-	var autoRefreshStarted bool
 	var followStarted bool
 	var lastSelectedTarget string
-	stopAutoRefresh := make(chan struct{})
-	stopFollow := make(chan struct{})
 
 	var loadMu sync.Mutex
 	isLoading := false
@@ -390,6 +387,11 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		lastSelectedTarget = strings.TrimSpace(value)
 	}
 
+	// Follow mode tails the log at a fixed 1s cadence, independent of the
+	// configurable refresh interval.
+	follow := newFixedRefresher(time.Second, func() { fyne.Do(loadLogs) })
+	RegisterCloser(follow.Stop)
+
 	sourceSelect.OnChanged = func(string) {
 		rawLogs = ""
 		logEntry.SetText("")
@@ -399,7 +401,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		loadTargets()
 
 		if followStarted {
-			close(stopFollow)
+			follow.Stop()
 			followStarted = false
 			followButton.SetText("Следить")
 		}
@@ -423,7 +425,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 
 	followButton.OnTapped = func() {
 		if followStarted {
-			close(stopFollow)
+			follow.Stop()
 			followStarted = false
 			followButton.SetText("Следить")
 			statusLabel.SetText("Статус: слежение остановлено")
@@ -433,23 +435,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		loadLogs()
 		followStarted = true
 		followButton.SetText("Слежение...")
-		stopFollow = make(chan struct{})
-
-		go func() {
-			ticker := time.NewTicker(1 * time.Second)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ticker.C:
-					fyne.Do(func() {
-						loadLogs()
-					})
-				case <-stopFollow:
-					return
-				}
-			}
-		}()
+		follow.Start()
 	}
 
 	copyButton.OnTapped = func() {
@@ -510,39 +496,10 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		saveDialog.Show()
 	}
 
-	autoRefreshCheck.OnChanged = func(checked bool) {
-		if !checked {
-			if autoRefreshStarted {
-				close(stopAutoRefresh)
-				autoRefreshStarted = false
-			}
-			return
-		}
-
-		if autoRefreshStarted {
-			return
-		}
-		autoRefreshStarted = true
-		stopAutoRefresh = make(chan struct{})
-
-		go func() {
-			ticker := time.NewTicker(time.Duration(cfg.RefreshIntervalSeconds) * time.Second)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ticker.C:
-					if autoRefreshCheck.Checked {
-						fyne.Do(func() {
-							loadLogs()
-						})
-					}
-				case <-stopAutoRefresh:
-					return
-				}
-			}
-		}()
-	}
+	autoRefresh := newAutoRefresher(func() { fyne.Do(loadLogs) })
+	RegisterCloser(autoRefresh.Stop)
+	autoRefreshCheck.OnChanged = autoRefresh.SetEnabled
+	autoRefresh.SetEnabled(cfg.LogsAutoRefresh)
 
 	header := container.NewVBox(
 		title,

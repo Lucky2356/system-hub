@@ -53,6 +53,8 @@ func runCmdContext(parent context.Context, timeout time.Duration, name string, a
 	}
 
 	cmd := exec.CommandContext(ctx, binPath, args...)
+	hideConsoleWindow(cmd)
+
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out

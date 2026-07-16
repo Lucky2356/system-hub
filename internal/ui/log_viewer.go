@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/Lucky2356/system-hub/internal/config"
-	"github.com/Lucky2356/system-hub/internal/appstate"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -42,10 +41,7 @@ func showLogsWindow(
 	levelSelect := widget.NewSelect([]string{"Все", "Ошибки", "Предупреждения", "Инфо"}, nil)
 	levelSelect.SetSelected("Все")
 
-	stopAutoRefresh := make(chan struct{})
-	autoRefreshStarted := false
 	followStarted := false
-	stopFollow := make(chan struct{})
 
 	var rawLogs string
 
@@ -120,47 +116,15 @@ func showLogsWindow(
 		applySearchFilter()
 	}
 
-	autoRefreshCheck.OnChanged = func(checked bool) {
-		if !checked {
-			if autoRefreshStarted {
-				close(stopAutoRefresh)
-				autoRefreshStarted = false
-			}
-			return
-		}
+	autoRefresh := newAutoRefresher(func() { fyne.Do(loadLogs) })
+	autoRefreshCheck.OnChanged = autoRefresh.SetEnabled
+	autoRefresh.SetEnabled(cfg.LogViewerAutoRefresh)
 
-		if autoRefreshStarted {
-			return
-		}
-		autoRefreshStarted = true
-		stopAutoRefresh = make(chan struct{})
-
-		go func() {
-			ticker := time.NewTicker(time.Duration(appstate.GetConfig().RefreshIntervalSeconds) * time.Second)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ticker.C:
-					if autoRefreshCheck.Checked {
-						fyne.Do(func() {
-							loadLogs()
-						})
-					}
-				case <-stopAutoRefresh:
-					return
-				}
-			}
-		}()
-	}
-
-	if cfg.LogViewerAutoRefresh {
-		autoRefreshCheck.OnChanged(true)
-	}
+	follow := newFixedRefresher(time.Second, func() { fyne.Do(loadLogs) })
 
 	followButton.OnTapped = func() {
 		if followStarted {
-			close(stopFollow)
+			follow.Stop()
 			followStarted = false
 			followButton.SetText("Следить")
 			infoLabel.SetText("Слежение остановлено")
@@ -170,30 +134,14 @@ func showLogsWindow(
 		loadLogs()
 		followStarted = true
 		followButton.SetText("Слежение...")
-		stopFollow = make(chan struct{})
-
-		go func() {
-			ticker := time.NewTicker(1 * time.Second)
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-ticker.C:
-					fyne.Do(func() {
-						loadLogs()
-					})
-				case <-stopFollow:
-					return
-				}
-			}
-		}()
+		follow.Start()
 	}
 
+	// This is a transient window, so stop pollers on close rather than
+	// registering a global closer (which would accumulate per opened window).
 	logWindow.SetOnClosed(func() {
-		close(stopAutoRefresh)
-		if followStarted {
-			close(stopFollow)
-		}
+		autoRefresh.Stop()
+		follow.Stop()
 	})
 
 	content := container.NewBorder(
