@@ -1,16 +1,16 @@
+//go:build linux
+
 package system
 
 import (
-	"errors"
 	"fmt"
-	"runtime"
 )
 
-func GetSystemLogs(lines int) (string, error) {
-	if runtime.GOOS != "linux" {
-		return "", errors.New("system logs are available only on Linux")
-	}
+// SystemLogName labels the log backend in the UI.
+const SystemLogName = "journalctl"
 
+// GetSystemLogs returns the most recent journal entries.
+func GetSystemLogs(lines int) (string, error) {
 	if lines <= 0 {
 		lines = 100
 	}

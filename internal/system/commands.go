@@ -5,88 +5,45 @@ import (
 	"strings"
 )
 
+// SafeCommand is a read-only diagnostic command the user can run from the
+// Commands tab. Arguments are built by BuildArgs rather than typed freely, so
+// no user input can turn into an extra flag or a shell fragment.
 type SafeCommand struct {
 	Key         string
 	Title       string
 	Description string
 	NeedsArg    bool
 	ArgHint     string
+	Binary      string
 	BuildArgs   func(arg string) ([]string, error)
 }
 
+// GetSafeCommands returns the commands available on this platform. The list is
+// platform-specific: offering systemctl and journalctl on Windows only produced
+// "not found" errors.
 func GetSafeCommands() []SafeCommand {
+	return append(platformCommands(), dockerCommands()...)
+}
+
+// dockerCommands work anywhere Docker is installed.
+func dockerCommands() []SafeCommand {
 	return []SafeCommand{
-		{
-			Key:         "systemctl-list-services",
-			Title:       "systemctl list services",
-			Description: "Показать список systemd-сервисов",
-			NeedsArg:    false,
-			BuildArgs: func(arg string) ([]string, error) {
-				return []string{"list-units", "--type=service", "--all", "--no-pager"}, nil
-			},
-		},
-		{
-			Key:         "systemctl-status",
-			Title:       "systemctl status <service>",
-			Description: "Показать статус одного systemd-сервиса",
-			NeedsArg:    true,
-			ArgHint:     "Например: nginx.service",
-			BuildArgs: func(arg string) ([]string, error) {
-				arg = strings.TrimSpace(arg)
-				if err := validateName("service", arg); err != nil {
-					return nil, err
-				}
-				return []string{"status", "--no-pager", "--", arg}, nil
-			},
-		},
 		{
 			Key:         "docker-ps",
 			Title:       "docker ps -a",
 			Description: "Показать все контейнеры Docker",
-			NeedsArg:    false,
-			BuildArgs: func(arg string) ([]string, error) {
+			Binary:      "docker",
+			BuildArgs: func(string) ([]string, error) {
 				return []string{"ps", "-a"}, nil
 			},
 		},
 		{
 			Key:         "docker-images",
 			Title:       "docker images",
-			Description: "Показать Docker images",
-			NeedsArg:    false,
-			BuildArgs: func(arg string) ([]string, error) {
+			Description: "Показать Docker-образы",
+			Binary:      "docker",
+			BuildArgs: func(string) ([]string, error) {
 				return []string{"images"}, nil
-			},
-		},
-		{
-			Key:         "journalctl-tail",
-			Title:       "journalctl -n 100",
-			Description: "Показать последние системные логи",
-			NeedsArg:    false,
-			BuildArgs: func(arg string) ([]string, error) {
-				return []string{"-n", "100", "--no-pager"}, nil
-			},
-		},
-		{
-			Key:         "journalctl-service",
-			Title:       "journalctl -u <service> -n 100",
-			Description: "Показать последние логи конкретного сервиса",
-			NeedsArg:    true,
-			ArgHint:     "Например: docker.service",
-			BuildArgs: func(arg string) ([]string, error) {
-				arg = strings.TrimSpace(arg)
-				if err := validateName("service", arg); err != nil {
-					return nil, err
-				}
-				return []string{"-u", arg, "-n", "100", "--no-pager"}, nil
-			},
-		},
-		{
-			Key:         "ss-tulpn",
-			Title:       "ss -tulpn",
-			Description: "Показать listening ports и процессы",
-			NeedsArg:    false,
-			BuildArgs: func(arg string) ([]string, error) {
-				return []string{"-tulpn"}, nil
 			},
 		},
 	}
@@ -112,9 +69,7 @@ func RunSafeCommand(key, arg string) (string, error) {
 		return "", err
 	}
 
-	bin := detectBinaryForCommand(key)
-
-	output, err := runCmd(bin, args...)
+	output, err := runCmd(selected.Binary, args...)
 	if err != nil {
 		if len(output) == 0 {
 			return "", err
@@ -129,17 +84,12 @@ func RunSafeCommand(key, arg string) (string, error) {
 	return string(output), nil
 }
 
-func detectBinaryForCommand(key string) string {
-	switch {
-	case strings.HasPrefix(key, "systemctl"):
-		return "systemctl"
-	case strings.HasPrefix(key, "docker"):
-		return "docker"
-	case strings.HasPrefix(key, "journalctl"):
-		return "journalctl"
-	case strings.HasPrefix(key, "ss-"):
-		return "ss"
-	default:
-		return ""
+// requireServiceArg validates a user-supplied service name for the commands
+// that take one.
+func requireServiceArg(arg string) (string, error) {
+	arg = strings.TrimSpace(arg)
+	if err := validateName("service", arg); err != nil {
+		return "", err
 	}
+	return arg, nil
 }

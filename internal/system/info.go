@@ -40,8 +40,8 @@ type Stats struct {
 	UptimeSeconds uint64
 	UptimeKnown   bool
 
-	SystemdAvailable bool
-	DockerAvailable  bool
+	ServiceManagerAvailable bool
+	DockerAvailable         bool
 
 	ServiceCount      int
 	ServiceCountKnown bool
@@ -117,7 +117,7 @@ func collectStats(heavy bool) (Stats, error) {
 		result.NetRecv = netIO[0].BytesRecv
 	}
 
-	result.SystemdAvailable = IsSystemdAvailable()
+	result.ServiceManagerAvailable = IsServiceManagerAvailable()
 	result.DockerAvailable = IsDockerAvailable()
 
 	if !heavy {
@@ -126,7 +126,7 @@ func collectStats(heavy bool) (Stats, error) {
 
 	result.Temperatures = GetTemperatures()
 
-	if result.SystemdAvailable {
+	if result.ServiceManagerAvailable {
 		serviceCount, err := CountServices()
 		if err == nil {
 			result.ServiceCount = serviceCount
@@ -238,14 +238,11 @@ var (
 	dockerAvailCache  availabilityCache
 )
 
-func IsSystemdAvailable() bool {
-	return systemdAvailCache.get(func() bool {
-		if runtime.GOOS != "linux" {
-			return false
-		}
-		_, err := runCmd("systemctl", "--version")
-		return err == nil
-	})
+// IsServiceManagerAvailable reports whether the platform's service manager
+// (systemd or the Windows SCM) can be reached. Use ServiceManagerName for the
+// label to show alongside it.
+func IsServiceManagerAvailable() bool {
+	return systemdAvailCache.get(serviceManagerAvailable)
 }
 
 func IsDockerAvailable() bool {

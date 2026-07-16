@@ -84,10 +84,10 @@ func buildStatsSection(stats Stats) string {
 		lines = append(lines, "Uptime: unavailable")
 	}
 
-	if stats.SystemdAvailable {
-		lines = append(lines, "systemd: available")
+	if stats.ServiceManagerAvailable {
+		lines = append(lines, ServiceManagerName+": available")
 	} else {
-		lines = append(lines, "systemd: unavailable")
+		lines = append(lines, ServiceManagerName+": unavailable")
 	}
 
 	if stats.ServiceCountKnown {

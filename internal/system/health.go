@@ -21,8 +21,8 @@ func BuildProblems(stats Stats, favoriteServices []string, favoriteContainers []
 		problems = append(problems, fmt.Sprintf("High disk usage: %.1f%%", stats.DiskPercent))
 	}
 
-	if !stats.SystemdAvailable {
-		problems = append(problems, "systemd is unavailable")
+	if !stats.ServiceManagerAvailable {
+		problems = append(problems, ServiceManagerName+" is unavailable")
 	} else {
 		serviceProblems := checkFavoriteServices(favoriteServices)
 		problems = append(problems, serviceProblems...)

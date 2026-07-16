@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
 	"sort"
 	"strings"
 	"time"
@@ -13,7 +12,6 @@ import (
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
@@ -24,7 +22,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	title := widget.NewLabel("Сервисы")
 	title.TextStyle = fyne.TextStyle{Bold: true}
 
-	subtitle := widget.NewLabel("Просмотр и управление systemd-сервисами")
+	subtitle := widget.NewLabel("Просмотр и управление службами (" + system.ServiceManagerName + ")")
 
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Поиск (например: ssh, docker...)")
@@ -167,12 +165,15 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			return len(filteredServices)
 		},
 		func() fyne.CanvasObject {
+			// The state badge leads the row. A trailing state (border layout's
+			// right slot, or an HBox spacer) rendered off the visible width and
+			// was never seen; a leading, fixed-width badge always is.
+			stateLabel := widget.NewLabel(statePlaceholder)
+			stateLabel.TextStyle = fyne.TextStyle{Bold: true}
+
 			nameLabel := widget.NewLabel("service")
 
-			stateText := canvas.NewText("state", color.White)
-			stateText.Alignment = fyne.TextAlignTrailing
-
-			return container.NewBorder(nil, nil, nil, stateText, nameLabel)
+			return container.NewHBox(stateLabel, nameLabel)
 		},
 		func(id widget.ListItemID, obj fyne.CanvasObject) {
 			if id < 0 || id >= len(filteredServices) {
@@ -181,9 +182,9 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 			svc := filteredServices[id]
 
-			border := obj.(*fyne.Container)
-			nameLabel := border.Objects[0].(*widget.Label)
-			stateText := border.Objects[1].(*canvas.Text)
+			row := obj.(*fyne.Container)
+			stateLabel := row.Objects[0].(*widget.Label)
+			nameLabel := row.Objects[1].(*widget.Label)
 
 			prefix := ""
 			if isFavoriteService(svc.Name) {
@@ -191,10 +192,9 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			}
 
 			nameLabel.SetText(prefix + svc.Name)
-			stateText.Text = svc.ActiveState
-			stateText.Color = StatusColor(svc.ActiveState)
-			stateText.TextStyle = fyne.TextStyle{Bold: true}
-			stateText.Refresh()
+			stateLabel.SetText(padState(svc.ActiveState))
+			stateLabel.Importance = StatusImportance(svc.ActiveState)
+			stateLabel.Refresh()
 		},
 	)
 

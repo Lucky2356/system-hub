@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
 	"sort"
 	"strings"
 	"time"
@@ -13,12 +12,21 @@ import (
 	"github.com/Lucky2356/system-hub/internal/system"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
+
+// shortImageID trims an image ID for display. Slicing [:12] directly panics on
+// a shorter ID, which docker can return for some images.
+func shortImageID(id string) string {
+	const width = 12
+	if len(id) <= width {
+		return id
+	}
+	return id[:width]
+}
 
 func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	title := widget.NewLabel("Docker")
@@ -225,9 +233,12 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		},
 		func() fyne.CanvasObject {
 			nameLabel := widget.NewLabel("")
-			stateText := canvas.NewText("", color.White)
-			stateText.Alignment = fyne.TextAlignTrailing
-			return container.NewBorder(nil, nil, nil, stateText, nameLabel)
+
+			stateLabel := widget.NewLabel("")
+			stateLabel.Alignment = fyne.TextAlignTrailing
+			stateLabel.TextStyle = fyne.TextStyle{Bold: true}
+
+			return container.NewBorder(nil, nil, nil, stateLabel, nameLabel)
 		},
 		func(id widget.ListItemID, obj fyne.CanvasObject) {
 			if id < 0 {
@@ -236,7 +247,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 			row := obj.(*fyne.Container)
 			nameLabel := row.Objects[0].(*widget.Label)
-			stateText := row.Objects[1].(*canvas.Text)
+			stateLabel := row.Objects[1].(*widget.Label)
 
 			if isImagesMode() {
 				if id >= len(filteredImages) {
@@ -244,8 +255,8 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 				}
 				img := filteredImages[id]
 				nameLabel.SetText(fmt.Sprintf("%s:%s", img.Repository, img.Tag))
-				stateText.Text = fmt.Sprintf("%s  %s", img.ID[:12], img.Size)
-				stateText.Color = color.RGBA{R: 100, G: 180, B: 255, A: 255}
+				stateLabel.SetText(fmt.Sprintf("%s  %s", shortImageID(img.ID), img.Size))
+				stateLabel.Importance = widget.MediumImportance
 			} else {
 				if id >= len(filteredContainers) {
 					return
@@ -258,12 +269,11 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 				}
 
 				nameLabel.SetText(fmt.Sprintf("%s%s (%s)", prefix, c.Names, c.Image))
-				stateText.Text = c.State
-				stateText.Color = StatusColor(c.State)
-				stateText.TextStyle = fyne.TextStyle{Bold: true}
+				stateLabel.SetText(c.State)
+				stateLabel.Importance = StatusImportance(c.State)
 			}
 
-			stateText.Refresh()
+			stateLabel.Refresh()
 		},
 	)
 

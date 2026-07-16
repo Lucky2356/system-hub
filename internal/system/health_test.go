@@ -7,10 +7,10 @@ import (
 
 func TestBuildProblemsReturnsEmptyWhenHealthy(t *testing.T) {
 	stats := Stats{
-		RAMPercent:       10,
-		DiskPercent:      20,
-		SystemdAvailable: true,
-		DockerAvailable:  true,
+		RAMPercent:              10,
+		DiskPercent:             20,
+		ServiceManagerAvailable: true,
+		DockerAvailable:         true,
 	}
 
 	problems := BuildProblems(stats, nil, nil)
@@ -24,10 +24,10 @@ func TestBuildProblemsReturnsEmptyWhenHealthy(t *testing.T) {
 
 func TestBuildProblemsFlagsThresholdsAndAvailability(t *testing.T) {
 	stats := Stats{
-		RAMPercent:       DefaultRAMAlertPercent + 1,
-		DiskPercent:      DefaultDiskAlertPercent + 1,
-		SystemdAvailable: false,
-		DockerAvailable:  false,
+		RAMPercent:              DefaultRAMAlertPercent + 1,
+		DiskPercent:             DefaultDiskAlertPercent + 1,
+		ServiceManagerAvailable: false,
+		DockerAvailable:         false,
 	}
 
 	problems := BuildProblems(stats, nil, nil)
@@ -36,7 +36,9 @@ func TestBuildProblemsFlagsThresholdsAndAvailability(t *testing.T) {
 	}
 
 	joined := strings.ToLower(strings.Join(problems, "|"))
-	for _, want := range []string{"ram", "disk", "systemd", "docker"} {
+	// The service manager is named per platform (systemd / Службы Windows), so
+	// assert on that name rather than hardcoding one platform's.
+	for _, want := range []string{"ram", "disk", strings.ToLower(ServiceManagerName), "docker"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("expected a problem mentioning %q, got %v", want, problems)
 		}
@@ -45,10 +47,10 @@ func TestBuildProblemsFlagsThresholdsAndAvailability(t *testing.T) {
 
 func TestBuildProblemsIgnoresThresholdsBelowLimit(t *testing.T) {
 	stats := Stats{
-		RAMPercent:       DefaultRAMAlertPercent - 0.1,
-		DiskPercent:      DefaultDiskAlertPercent - 0.1,
-		SystemdAvailable: true,
-		DockerAvailable:  true,
+		RAMPercent:              DefaultRAMAlertPercent - 0.1,
+		DiskPercent:             DefaultDiskAlertPercent - 0.1,
+		ServiceManagerAvailable: true,
+		DockerAvailable:         true,
 	}
 
 	if problems := BuildProblems(stats, nil, nil); len(problems) != 0 {

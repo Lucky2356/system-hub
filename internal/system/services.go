@@ -1,14 +1,14 @@
 package system
 
 import (
-	"bufio"
-	"errors"
-	"fmt"
-	"runtime"
 	"sort"
 	"strings"
 )
 
+// ServiceInfo describes one service in the vocabulary systemd uses. The Windows
+// provider maps its own states onto the same words (active/running,
+// inactive/dead, activating, ...) so the UI — including StatusColor — does not
+// need to know which platform produced the entry.
 type ServiceInfo struct {
 	Name        string
 	LoadState   string
@@ -17,35 +17,59 @@ type ServiceInfo struct {
 	Description string
 }
 
+// Service states shared by both providers.
+const (
+	stateActive       = "active"
+	stateInactive     = "inactive"
+	stateFailed       = "failed"
+	stateActivating   = "activating"
+	stateDeactivating = "deactivating"
+
+	subRunning = "running"
+	subDead    = "dead"
+
+	loadLoaded   = "loaded"
+	loadDisabled = "disabled"
+)
+
 var servicesCache listCache[ServiceInfo]
 
-// ListServices returns the systemd service list. Results are cached for a
-// short TTL (see listCacheTTL) because dashboard refresh consults the list
-// several times per tick; use InvalidateServicesCache after mutating actions.
+// ListServices returns the host's services. Results are cached for a short TTL
+// (see listCacheTTL) because a dashboard refresh consults the list several
+// times per tick; use InvalidateServicesCache after mutating actions.
+//
+// The platform-specific work lives in listServices (services_linux.go /
+// services_windows.go).
 func ListServices() ([]ServiceInfo, error) {
-	if runtime.GOOS != "linux" {
-		return nil, errors.New("services are available only on Linux (systemd)")
-	}
-
-	return servicesCache.get(func() ([]ServiceInfo, error) {
-		output, err := runCmd("systemctl",
-			"list-units",
-			"--type=service",
-			"--all",
-			"--no-pager",
-			"--no-legend",
-			"--plain",
-		)
-		if err != nil {
-			return nil, fmt.Errorf("run systemctl list-units: %w", err)
-		}
-
-		return parseSystemctlListUnits(string(output)), nil
-	})
+	return servicesCache.get(listServices)
 }
 
 func InvalidateServicesCache() {
 	servicesCache.invalidate()
+}
+
+// ControlService applies action ("start", "stop", "restart", "enable",
+// "disable") to a service.
+func ControlService(action string, serviceName string) error {
+	action = strings.TrimSpace(strings.ToLower(action))
+	serviceName = strings.TrimSpace(serviceName)
+
+	if err := validateName("service", serviceName); err != nil {
+		return err
+	}
+
+	switch action {
+	case "start", "stop", "restart", "enable", "disable":
+	default:
+		return errUnsupportedAction(action)
+	}
+
+	if err := controlService(action, serviceName); err != nil {
+		return err
+	}
+
+	InvalidateServicesCache()
+	return nil
 }
 
 func ListServiceNames() ([]string, error) {
@@ -82,40 +106,8 @@ func CountServices() (int, error) {
 	return len(services), nil
 }
 
-func ControlService(action string, serviceName string) error {
-	if runtime.GOOS != "linux" {
-		return errors.New("service control is available only on Linux (systemd)")
-	}
-
-	action = strings.TrimSpace(strings.ToLower(action))
-	serviceName = strings.TrimSpace(serviceName)
-
-	if err := validateName("service", serviceName); err != nil {
-		return err
-	}
-
-	switch action {
-	case "start", "stop", "restart", "enable", "disable":
-	default:
-		return fmt.Errorf("unsupported action: %s", action)
-	}
-
-	// "--" terminates option parsing so a crafted unit name cannot be
-	// interpreted as a systemctl flag.
-	_, err := runCmd("systemctl", action, "--", serviceName)
-	if err != nil {
-		return fmt.Errorf("systemctl %s %s: %w", action, serviceName, err)
-	}
-
-	InvalidateServicesCache()
-	return nil
-}
-
+// GetServiceLogs returns the most recent log lines for a service.
 func GetServiceLogs(serviceName string, lines int) (string, error) {
-	if runtime.GOOS != "linux" {
-		return "", errors.New("logs are available only on Linux (journalctl)")
-	}
-
 	serviceName = strings.TrimSpace(serviceName)
 	if err := validateName("service", serviceName); err != nil {
 		return "", err
@@ -125,41 +117,5 @@ func GetServiceLogs(serviceName string, lines int) (string, error) {
 		lines = 50
 	}
 
-	output, err := runCmd("journalctl",
-		"-u", serviceName,
-		"-n", fmt.Sprintf("%d", lines),
-		"--no-pager",
-	)
-	if err != nil {
-		return "", fmt.Errorf("journalctl %s: %w", serviceName, err)
-	}
-
-	return string(output), nil
-}
-
-func parseSystemctlListUnits(output string) []ServiceInfo {
-	var services []ServiceInfo
-
-	scanner := bufio.NewScanner(strings.NewReader(output))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-
-		fields := strings.Fields(line)
-		if len(fields) < 5 {
-			continue
-		}
-
-		services = append(services, ServiceInfo{
-			Name:        fields[0],
-			LoadState:   fields[1],
-			ActiveState: fields[2],
-			SubState:    fields[3],
-			Description: strings.Join(fields[4:], " "),
-		})
-	}
-
-	return services
+	return getServiceLogs(serviceName, lines)
 }

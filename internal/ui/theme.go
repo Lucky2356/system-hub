@@ -6,6 +6,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
 )
 
 // Palette shared by the custom theme and by widgets that draw their own colours
@@ -129,6 +130,40 @@ func StatusColor(state string) color.Color {
 	default:
 		return MutedColor
 	}
+}
+
+// StatusImportance maps a service/container state onto a widget Importance,
+// which the theme renders with the matching palette colour.
+//
+// Prefer this over StatusColor for list rows: a canvas.Text placed in a border
+// layout's side slot did not render inside widget.List rows, so states were
+// invisible. A Label carries its colour through the theme and always draws.
+func StatusImportance(state string) widget.Importance {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "active", "running":
+		return widget.SuccessImportance
+	case "failed", "exited", "error":
+		return widget.DangerImportance
+	case "activating", "deactivating", "restarting", "paused", "created":
+		return widget.WarningImportance
+	default:
+		return widget.LowImportance
+	}
+}
+
+// stateColumnWidth is the character width the state badge is padded to, so the
+// service and container names line up in a column.
+const stateColumnWidth = 12
+
+// statePlaceholder sizes the list row template's state badge.
+const statePlaceholder = "            " // stateColumnWidth spaces
+
+// padState pads a state word to a fixed width so names align.
+func padState(state string) string {
+	if len(state) >= stateColumnWidth {
+		return state
+	}
+	return state + strings.Repeat(" ", stateColumnWidth-len(state))
 }
 
 // ApplyTheme sets the app theme for the given config value ("light"/"dark").

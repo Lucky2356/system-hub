@@ -34,7 +34,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	diskBar := widget.NewProgressBar()
 
 	uptimeLabel := widget.NewLabel("Аптайм: ...")
-	systemdLabel := widget.NewLabel("systemd: ...")
+	systemdLabel := widget.NewLabel(system.ServiceManagerName + ": ...")
 	dockerLabel := widget.NewLabel("Docker: ...")
 
 	serviceCountLabel := widget.NewLabel("Сервисов: ...")
@@ -456,15 +456,15 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 			return
 		}
 
-		if stats.SystemdAvailable {
-			systemdLabel.SetText("systemd: доступен")
+		if stats.ServiceManagerAvailable {
+			systemdLabel.SetText(system.ServiceManagerName + ": доступен")
 			if stats.ServiceCountKnown {
 				serviceCountLabel.SetText(fmt.Sprintf("Сервисов: %d", stats.ServiceCount))
 			} else {
 				serviceCountLabel.SetText("Сервисов: недоступно")
 			}
 		} else {
-			systemdLabel.SetText("systemd: недоступен")
+			systemdLabel.SetText(system.ServiceManagerName + ": недоступен")
 			serviceCountLabel.SetText("Сервисов: недоступно")
 		}
 
