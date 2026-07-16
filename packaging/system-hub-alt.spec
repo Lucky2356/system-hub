@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 
 Name:           system-hub
-Version:        0.1.0
+Version:        0.2.0
 Release:        alt1
 Summary:        System administration GUI for Linux
 
@@ -64,5 +64,9 @@ install -Dpm0644 cmd/system-hub/Icon.png %{buildroot}%{_datadir}/icons/hicolor/2
 %{_datadir}/icons/hicolor/256x256/apps/system-hub.png
 
 %changelog
+* Thu Jul 16 2026 Lucky2356 <noreply@github.com> 0.2.0-alt1
+- Native Windows support, English/Russian interface, dashboard history charts,
+  per-container Docker stats, arm64 packages
+
 * Tue May 19 2026 System Hub Team <dev@system-hub.example.com> 0.1.0-alt1
 - Initial Alt Linux package
