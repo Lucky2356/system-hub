@@ -5,6 +5,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Sidebar navigation with icons, replacing eleven top tabs that no longer fit —
+  "Settings" was clipped off the edge. The four rarely-used screens (System Info,
+  Commands, Report, Activity) are grouped under one "Tools" section.
+- Dashboard rebuilt around a verdict line ("No problems" / "Problems: N") on top,
+  compact metric tiles, and details that fold away.
+- `SECURITY.md`, issue and pull-request templates.
+- The release pipeline signs the Windows binary and installer when a certificate
+  secret is configured — signing-ready without a workflow edit.
+
+### Changed
+- The window can be resized to fit a laptop. It could not be made narrower than
+  ~2015px — wider than a 1080p screen — because untruncated status labels let the
+  host's output (a Docker error at 1424px) set the minimum, and AppTabs takes its
+  minimum as the max over every tab. Host-text labels now truncate, toolbars
+  wrap, and the dashboard lays out in a wrapping grid. A test fails if any tab
+  needs more than 1000px in either language.
+- Per-tab bold titles removed — the sidebar already names each section.
+
+### Fixed
+- The refresh loop no longer starts a new tick while the previous one is still
+  running, so slow ticks (315 services + docker + full process scan) stop
+  stacking.
+- `KillProcess` refuses to kill System Hub's own process — a stray click on it in
+  the process list used to quit the app, looking like a crash.
+- Follow mode no longer resets the log's scroll position every second; it writes
+  only when the text actually changed.
+
 ## [0.2.0]
 
 The release that makes the app work on Windows, speak English, and run on ARM.

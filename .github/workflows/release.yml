@@ -151,6 +151,24 @@ jobs:
             -ldflags "-s -w -H=windowsgui -X github.com/Lucky2356/system-hub/internal/version.Version=${{ steps.ver.outputs.tag }}" \
             -o build/system-hub.exe ./cmd/system-hub
 
+      # Code signing runs only when a certificate secret is configured, so the
+      # workflow is signing-ready today and starts signing the day a certificate
+      # is bought — no workflow edit needed. Unsigned, Windows SmartScreen warns
+      # on the downloaded installer (see the README).
+      - name: Sign the binary
+        if: ${{ secrets.WINDOWS_CERT_BASE64 != '' }}
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $pfx = "$env:RUNNER_TEMP\cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT_BASE64))
+          & signtool sign /f $pfx /p $env:WINDOWS_CERT_PASSWORD `
+            /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
+            build\system-hub.exe
+          if ($LASTEXITCODE -ne 0) { throw "signing the binary failed" }
+
       - name: Build installer
         shell: pwsh
         run: |
@@ -168,6 +186,21 @@ jobs:
           & $iscc /DMyAppVersion=$ver packaging\windows\system-hub.iss
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
           Get-ChildItem dist
+
+      - name: Sign the installer
+        if: ${{ secrets.WINDOWS_CERT_BASE64 != '' }}
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $pfx = "$env:RUNNER_TEMP\cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT_BASE64))
+          Get-ChildItem dist\system-hub-*-setup.exe | ForEach-Object {
+            & signtool sign /f $pfx /p $env:WINDOWS_CERT_PASSWORD `
+              /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $_.FullName
+            if ($LASTEXITCODE -ne 0) { throw "signing the installer failed" }
+          }
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

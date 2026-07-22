@@ -42,6 +42,11 @@ swap the architecture in the file name.
 
 A portable `system-hub.exe` is also attached if you prefer no installation.
 
+> **Windows SmartScreen.** The installer is not code-signed, so on first run
+> Windows may show a blue "Windows protected your PC" screen. Click **More info →
+> Run anyway**. Signing needs a paid certificate; the release pipeline is already
+> wired to sign automatically once one is configured.
+
 ## Requirements
 
 Running a released build needs nothing beyond the OS itself; the rest is
@@ -117,6 +122,16 @@ in `i18n.Supported()`. The keys are the English source strings, so an untranslat
 entry renders in English rather than breaking the layout. A test parses the
 source and fails if a translation is missing, unused, or drops a format verb.
 
+## Not supported yet
+
+Being honest about the boundaries:
+
+- **Remote hosts.** System Hub manages the machine it runs on. It has no SSH or
+  agent, so it cannot administer a headless server — the usual case for
+  sysadmins and DevOps. That is the largest planned direction.
+- **Auto-update.** There is no updater; grab new releases from the releases page.
+- **macOS.** The code is cross-platform Go, but macOS is untested and unpackaged.
+
 ## Project Structure
 
 ```
@@ -140,23 +155,19 @@ internal/
     report.go         — Diagnostics report
     permissions.go    — Permission error handling
   ui/                 — Fyne widgets and tabs
-    dashboard_tab.go
-    processes_tab.go
-    services_tab.go
-    docker_tab.go
-    files_tab.go
-    commands_tab.go
-    system_info_tab.go
-    logs_tab.go
-    log_viewer.go
-    activity_tab.go
-    report_tab.go
-    settings_tab.go
-    favorites.go
-    files_bridge.go
-    notify.go
-    components.go
-    window.go
+    window.go         — Sidebar navigation, theme toggle, live language switch
+    dashboard_tab.go  — Verdict line, metric tiles, sparklines
+    services_tab.go   — Service list and lifecycle actions
+    docker_tab.go     — Containers and images
+    processes_tab.go  — Processes and listening ports
+    logs_tab.go       — Unified log viewer
+    files_tab.go      — File browser and editor
+    tools_tab.go      — System info / commands / report / activity, grouped
+    settings_tab.go   — Language, theme, refresh, auto-refresh
+    components.go      — Shared widgets: truncating labels, tiles, toolbars
+    sparkline.go       — History chart widget
+    theme.go           — Palette and status-colour mapping
+    autorefresh.go     — Refresh loop with overlap protection
 ```
 
 ## Dependencies
