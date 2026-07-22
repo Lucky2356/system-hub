@@ -80,12 +80,16 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		return result
 	}
 
+	// Assigned once the actions below exist.
+	var onRowMenu func(id widget.ListItemID, e *fyne.PointEvent)
+	var onRowActivate func(id widget.ListItemID)
+
 	fileList := widget.NewList(
 		func() int {
 			return len(filteredEntries)
 		},
 		func() fyne.CanvasObject {
-			return widget.NewLabel("file")
+			return newTappableRow(widget.NewLabel("file"))
 		},
 		func(id widget.ListItemID, obj fyne.CanvasObject) {
 			if id < 0 || id >= len(filteredEntries) {
@@ -93,7 +97,8 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 			}
 
 			item := filteredEntries[id]
-			label := obj.(*widget.Label)
+			row := obj.(*tappableRow)
+			label := row.content.(*widget.Label)
 
 			prefix := "[F]"
 			if item.IsDir {
@@ -106,6 +111,10 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 			}
 
 			label.SetText(prefix + " " + item.Name + suffix)
+
+			rowID := id
+			row.onSecondary = func(e *fyne.PointEvent) { onRowMenu(rowID, e) }
+			row.onDouble = func() { onRowActivate(rowID) }
 		},
 	)
 
@@ -414,10 +423,43 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		container.NewPadded(fileList),
 	)
 
-	// The action row spans the full window width up top, not the narrow left
-	// column: eleven buttons wrapped into six rows inside the column and made
-	// this the tallest tab. Across the whole width they fit one or two rows.
-	toolbar := newToolbarRow(openButton, upButton, viewButton, editButton, reloadButton, saveButton, infoButton, newFileButton, newDirButton, renameButton, deleteButton)
+	// Right-click on an entry offers the operations that act on it; the toolbar
+	// keeps only what is always available. Eleven buttons on the toolbar wrapped
+	// into eleven rows at the minimum width — MinSize is computed there — and
+	// made this by far the tallest tab.
+	onRowMenu = func(id widget.ListItemID, e *fyne.PointEvent) {
+		fileList.Select(id)
+		if id < 0 || id >= len(filteredEntries) {
+			return
+		}
+		item := filteredEntries[id]
+
+		actions := []rowAction{}
+		if item.IsDir {
+			actions = append(actions, rowAction{label: i18n.T("Open"), do: openButton.OnTapped})
+		} else {
+			actions = append(actions,
+				rowAction{label: i18n.T("View"), do: viewButton.OnTapped},
+				rowAction{label: i18n.T("Edit"), do: editButton.OnTapped},
+			)
+		}
+		actions = append(actions,
+			rowAction{label: i18n.T("Rename"), do: renameButton.OnTapped},
+			rowAction{label: i18n.T("Delete"), do: deleteButton.OnTapped},
+			rowAction{label: i18n.T("Info"), do: infoButton.OnTapped},
+		)
+		showRowMenu(parent, e, actions)
+	}
+
+	// Double-click: enter a directory, or open a file for viewing.
+	onRowActivate = func(id widget.ListItemID) {
+		fileList.Select(id)
+		openSelected()
+	}
+
+	// New file / New folder do not act on a selection, so they stay on the
+	// toolbar alongside navigation and save.
+	toolbar := newToolbarRow(openButton, upButton, viewButton, editButton, reloadButton, saveButton, newFileButton, newDirButton)
 
 	contentContainer := container.NewBorder(
 		container.NewVBox(
