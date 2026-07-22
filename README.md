@@ -71,7 +71,7 @@ go run ./cmd/system-hub
 Build a standalone binary (with version stamped in):
 
 ```bash
-make build VERSION=v0.2.0        # or: go build -o system-hub ./cmd/system-hub
+make build VERSION=v0.3.0        # or: go build -o system-hub ./cmd/system-hub
 ./system-hub --version
 ```
 
@@ -90,10 +90,10 @@ Local builds:
 
 ```bash
 # Windows .exe (run on Windows, needs a C compiler for CGO/Fyne)
-make windows-amd64 VERSION=v0.2.0
+make windows-amd64 VERSION=v0.3.0
 
 # .deb / .rpm (run on Linux; needs nfpm and Fyne dev headers)
-make packages VERSION=0.2.0
+make packages VERSION=0.3.0
 ```
 
 Distro RPM specs live in [`packaging/`](packaging/) (Fedora and ALT Linux).
@@ -122,13 +122,13 @@ in `i18n.Supported()`. The keys are the English source strings, so an untranslat
 entry renders in English rather than breaking the layout. A test parses the
 source and fails if a translation is missing, unused, or drops a format verb.
 
-## Not supported yet
+## Scope
 
 Being honest about the boundaries:
 
-- **Remote hosts.** System Hub manages the machine it runs on. It has no SSH or
-  agent, so it cannot administer a headless server — the usual case for
-  sysadmins and DevOps. That is the largest planned direction.
+- **Local machine only, by design.** System Hub manages the machine it runs on.
+  It is a desktop tool for a workstation, homelab, or Windows PC — not a remote
+  console, and it does not connect to other hosts.
 - **Auto-update.** There is no updater; grab new releases from the releases page.
 - **macOS.** The code is cross-platform Go, but macOS is untested and unpackaged.
 
