@@ -131,6 +131,11 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 		return ""
 	}
 
+	// Assigned once the actions below exist; row callbacks read them at click
+	// time.
+	var onRowMenu func(id widget.ListItemID, e *fyne.PointEvent)
+	var onRowActivate func(id widget.ListItemID)
+
 	list := widget.NewList(
 		func() int {
 			if isPortsMode() {
@@ -142,12 +147,17 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 			left := widget.NewLabel("")
 			right := canvas.NewText("", color.White)
 			right.Alignment = fyne.TextAlignTrailing
-			return container.NewBorder(nil, nil, nil, right, left)
+			return newTappableRow(container.NewBorder(nil, nil, nil, right, left))
 		},
 		func(id widget.ListItemID, obj fyne.CanvasObject) {
-			row := obj.(*fyne.Container)
+			tr := obj.(*tappableRow)
+			row := tr.content.(*fyne.Container)
 			left := row.Objects[0].(*widget.Label)
 			right := row.Objects[1].(*canvas.Text)
+
+			rowID := id
+			tr.onSecondary = func(e *fyne.PointEvent) { onRowMenu(rowID, e) }
+			tr.onDouble = func() { onRowActivate(rowID) }
 
 			if isPortsMode() {
 				if id < 0 || id >= len(filteredPorts) {
@@ -352,6 +362,19 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 			},
 			parent,
 		)
+	}
+
+	onRowMenu = func(id widget.ListItemID, e *fyne.PointEvent) {
+		list.Select(id)
+		showRowMenu(parent, e, []rowAction{
+			{label: i18n.T("Details"), do: func() { detailsButton.OnTapped() }},
+			{label: i18n.T("Kill"), do: func() { killButton.OnTapped() }},
+		})
+	}
+
+	onRowActivate = func(id widget.ListItemID) {
+		list.Select(id)
+		detailsButton.OnTapped()
 	}
 
 	refreshButton := widget.NewButton(i18n.T("Refresh"), func() {

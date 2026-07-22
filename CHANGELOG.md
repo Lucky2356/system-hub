@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Right-click and double-click on service, container and process rows: the row
+  is the handle now, with a context menu (start/stop/restart/logs/…) and
+  double-click for details, instead of select-then-reach-for-a-button.
+- Docker tab shows a plain "Docker isn't running" message over an empty list
+  when the daemon is down, instead of a blank pane and a raw socket error.
 - Sidebar navigation with icons, replacing eleven top tabs that no longer fit —
   "Settings" was clipped off the edge. The four rarely-used screens (System Info,
   Commands, Report, Activity) are grouped under one "Tools" section.
