@@ -110,6 +110,12 @@ jobs:
   # ---------------------------------------------------------------------------
   windows:
     runs-on: windows-latest
+    # Promoted to job-level env because secrets are not available in a step's
+    # `if:` — referencing ${{ secrets.* }} there is a workflow validation error,
+    # which failed the whole Release run on every push. env is allowed in `if:`.
+    env:
+      WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+      WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -156,11 +162,8 @@ jobs:
       # is bought — no workflow edit needed. Unsigned, Windows SmartScreen warns
       # on the downloaded installer (see the README).
       - name: Sign the binary
-        if: ${{ secrets.WINDOWS_CERT_BASE64 != '' }}
+        if: env.WINDOWS_CERT_BASE64 != ''
         shell: pwsh
-        env:
-          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
-          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
         run: |
           $pfx = "$env:RUNNER_TEMP\cert.pfx"
           [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT_BASE64))
@@ -188,11 +191,8 @@ jobs:
           Get-ChildItem dist
 
       - name: Sign the installer
-        if: ${{ secrets.WINDOWS_CERT_BASE64 != '' }}
+        if: env.WINDOWS_CERT_BASE64 != ''
         shell: pwsh
-        env:
-          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
-          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
         run: |
           $pfx = "$env:RUNNER_TEMP\cert.pfx"
           [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERT_BASE64))
