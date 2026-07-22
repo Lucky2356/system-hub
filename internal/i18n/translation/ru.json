@@ -176,6 +176,10 @@
   "Status: loading docker inspect...": "Статус: загрузка docker inspect...",
   "Status: docker inspect failed": "Статус: ошибка docker inspect",
   "Status: docker inspect loaded": "Статус: docker inspect загружен",
+  "Status: Docker unavailable": "Статус: Docker недоступен",
+  "Docker isn't running.\nStart Docker and refresh.": "Docker не запущен.\nЗапустите Docker и обновите.",
+  "No containers.": "Нет контейнеров.",
+  "No images.": "Нет образов.",
 
   "The «Files» tab is not ready yet": "Вкладка «Файлы» ещё не готова",
   "Browse important directories and config files": "Просмотр важных директорий и конфигов",

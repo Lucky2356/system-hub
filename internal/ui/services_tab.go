@@ -164,6 +164,11 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		return result
 	}
 
+	// Assigned once the actions below exist; the row callbacks read them at
+	// click time, not at construction, so the forward reference is fine.
+	var onRowMenu func(id widget.ListItemID, e *fyne.PointEvent)
+	var onRowActivate func(id widget.ListItemID)
+
 	serviceList := widget.NewList(
 		func() int {
 			return len(filteredServices)
@@ -177,7 +182,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 			nameLabel := widget.NewLabel("service")
 
-			return container.NewHBox(stateLabel, nameLabel)
+			return newTappableRow(container.NewHBox(stateLabel, nameLabel))
 		},
 		func(id widget.ListItemID, obj fyne.CanvasObject) {
 			if id < 0 || id >= len(filteredServices) {
@@ -186,9 +191,10 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 			svc := filteredServices[id]
 
-			row := obj.(*fyne.Container)
-			stateLabel := row.Objects[0].(*widget.Label)
-			nameLabel := row.Objects[1].(*widget.Label)
+			row := obj.(*tappableRow)
+			hbox := row.content.(*fyne.Container)
+			stateLabel := hbox.Objects[0].(*widget.Label)
+			nameLabel := hbox.Objects[1].(*widget.Label)
 
 			prefix := ""
 			if isFavoriteService(svc.Name) {
@@ -199,6 +205,10 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			stateLabel.SetText(padState(svc.ActiveState))
 			stateLabel.Importance = StatusImportance(svc.ActiveState)
 			stateLabel.Refresh()
+
+			rowID := id
+			row.onSecondary = func(e *fyne.PointEvent) { onRowMenu(rowID, e) }
+			row.onDouble = func() { onRowActivate(rowID) }
 		},
 	)
 
@@ -479,6 +489,37 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 	disableButton.OnTapped = func() {
 		runServiceAction("disable")
+	}
+
+	// A right-click selects the row, then offers the same actions as the button
+	// bar. Selecting first means the existing handlers, which act on the
+	// selection, need no change.
+	onRowMenu = func(id widget.ListItemID, e *fyne.PointEvent) {
+		serviceList.Select(id)
+		if id < 0 || id >= len(filteredServices) {
+			return
+		}
+		svc := filteredServices[id]
+
+		favourite := i18n.T("Add to favorites")
+		if isFavoriteService(svc.Name) {
+			favourite = i18n.T("In favorites")
+		}
+
+		showRowMenu(parent, e, []rowAction{
+			{label: i18n.T("Start"), do: func() { runServiceAction("start") }},
+			{label: i18n.T("Stop"), do: func() { runServiceAction("stop") }},
+			{label: i18n.T("Restart"), do: func() { runServiceAction("restart") }},
+			{label: i18n.T("Logs"), do: func() { logsButton.OnTapped() }},
+			{label: i18n.T("Details"), do: func() { detailsButton.OnTapped() }},
+			{label: favourite, do: func() { favoriteButton.OnTapped() }},
+		})
+	}
+
+	// Double-click opens details, the same as the Details button.
+	onRowActivate = func(id widget.ListItemID) {
+		serviceList.Select(id)
+		detailsButton.OnTapped()
 	}
 
 	refreshButton := widget.NewButtonWithIcon(i18n.T("Refresh"), theme.ViewRefreshIcon(), func() {

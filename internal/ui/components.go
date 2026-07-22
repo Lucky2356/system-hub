@@ -6,6 +6,39 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// emptyState is a centred message shown over a list that has nothing to show,
+// so an unavailable backend reads as an explanation instead of a blank pane
+// with a raw error in the status bar.
+type emptyState struct {
+	overlay *fyne.Container
+	label   *widget.Label
+}
+
+// newListWithEmptyState stacks a message over a list. The message is hidden
+// while the list has rows and shown, with the given text, when it does not.
+func newListWithEmptyState(list fyne.CanvasObject) (fyne.CanvasObject, *emptyState) {
+	label := widget.NewLabelWithStyle("", fyne.TextAlignCenter, fyne.TextStyle{})
+	label.Wrapping = fyne.TextWrapWord
+
+	es := &emptyState{
+		overlay: container.NewCenter(label),
+		label:   label,
+	}
+	es.overlay.Hide()
+
+	return container.NewStack(list, es.overlay), es
+}
+
+// show displays the message; hide returns to the list.
+func (e *emptyState) show(message string) {
+	e.label.SetText(message)
+	e.overlay.Show()
+}
+
+func (e *emptyState) hide() {
+	e.overlay.Hide()
+}
+
 // setTextIfChanged updates a multi-line entry only when its content differs.
 //
 // widget.Entry.SetText resets the scroll position, so calling it every time the

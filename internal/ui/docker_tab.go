@@ -232,6 +232,12 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		return result
 	}
 
+	// Assigned once the actions below exist; the row callbacks read them at
+	// click time. Images have no lifecycle actions, so the menu is
+	// container-only.
+	var onRowMenu func(id widget.ListItemID, e *fyne.PointEvent)
+	var onRowActivate func(id widget.ListItemID)
+
 	containerList := widget.NewList(
 		func() int {
 			if isImagesMode() {
@@ -248,16 +254,21 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 
 			nameLabel := widget.NewLabel("")
 
-			return container.NewHBox(stateLabel, nameLabel)
+			return newTappableRow(container.NewHBox(stateLabel, nameLabel))
 		},
 		func(id widget.ListItemID, obj fyne.CanvasObject) {
 			if id < 0 {
 				return
 			}
 
-			row := obj.(*fyne.Container)
-			stateLabel := row.Objects[0].(*widget.Label)
-			nameLabel := row.Objects[1].(*widget.Label)
+			row := obj.(*tappableRow)
+			hbox := row.content.(*fyne.Container)
+			stateLabel := hbox.Objects[0].(*widget.Label)
+			nameLabel := hbox.Objects[1].(*widget.Label)
+
+			rowID := id
+			row.onSecondary = func(e *fyne.PointEvent) { onRowMenu(rowID, e) }
+			row.onDouble = func() { onRowActivate(rowID) }
 
 			if isImagesMode() {
 				if id >= len(filteredImages) {
@@ -291,6 +302,21 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 			stateLabel.Refresh()
 		},
 	)
+
+	containerListArea, dockerEmpty := newListWithEmptyState(containerList)
+
+	// emptyMessage explains why the list is empty, rather than leaving a blank
+	// pane and a raw npipe/socket error in the status bar. Docker being absent is
+	// the common case on the machines this runs on.
+	emptyMessage := func() string {
+		if !system.IsDockerAvailable() {
+			return i18n.T("Docker isn't running.\nStart Docker and refresh.")
+		}
+		if isImagesMode() {
+			return i18n.T("No images.")
+		}
+		return i18n.T("No containers.")
+	}
 
 	refreshList := func() {
 		if isImagesMode() {
@@ -328,10 +354,12 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		}
 
 		if count == 0 {
+			dockerEmpty.show(emptyMessage())
 			statusLabel.SetText(i18n.T("Status: 0 results"))
 			return
 		}
 
+		dockerEmpty.hide()
 		if isImagesMode() {
 			statusLabel.SetText(i18n.Tf("Status: %d images | updated %s", count, time.Now().Format("15:04:05")))
 		} else {
@@ -352,7 +380,12 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		containerList.UnselectAll()
 		containerList.Refresh()
 		updateActionButtons()
-		statusLabel.SetText(i18n.Tf("Status: load error — %s", err.Error()))
+
+		// A failure here almost always means the daemon is unreachable. Show the
+		// same human message over the list; keep the raw error only in the log.
+		dockerEmpty.show(emptyMessage())
+		log.Printf("docker list failed: %v", err)
+		statusLabel.SetText(i18n.T("Status: Docker unavailable"))
 	}
 
 	refreshContainers := func() {
@@ -719,6 +752,45 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		runContainerAction("restart")
 	}
 
+	onRowMenu = func(id widget.ListItemID, e *fyne.PointEvent) {
+		containerList.Select(id)
+
+		// Images have no lifecycle; offer only Remove.
+		if isImagesMode() {
+			showRowMenu(parent, e, []rowAction{
+				{label: i18n.T("Remove image"), do: func() { removeImageButton.OnTapped() }},
+			})
+			return
+		}
+
+		if id < 0 || id >= len(filteredContainers) {
+			return
+		}
+		c := filteredContainers[id]
+
+		favourite := i18n.T("Add to favorites")
+		if isFavoriteContainer(c.Names) {
+			favourite = i18n.T("In favorites")
+		}
+
+		showRowMenu(parent, e, []rowAction{
+			{label: i18n.T("Start"), do: func() { runContainerAction("start") }},
+			{label: i18n.T("Stop"), do: func() { runContainerAction("stop") }},
+			{label: i18n.T("Restart"), do: func() { runContainerAction("restart") }},
+			{label: i18n.T("Logs"), do: func() { logsButton.OnTapped() }},
+			{label: i18n.T("Inspect"), do: func() { inspectButton.OnTapped() }},
+			{label: favourite, do: func() { favoriteButton.OnTapped() }},
+		})
+	}
+
+	onRowActivate = func(id widget.ListItemID) {
+		containerList.Select(id)
+		if isImagesMode() {
+			return
+		}
+		detailsButton.OnTapped()
+	}
+
 	refreshButton := widget.NewButton(i18n.T("Refresh"), func() {
 		startInitialLoad(refreshData)
 	})
@@ -762,7 +834,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		nil,
 		nil,
 		nil,
-		container.NewPadded(containerList),
+		container.NewPadded(containerListArea),
 	)
 
 	startInitialLoad(refreshContainers)
