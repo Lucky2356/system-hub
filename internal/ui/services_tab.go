@@ -19,9 +19,8 @@ import (
 )
 
 func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
-	title := widget.NewLabel(i18n.T("Services"))
-	title.TextStyle = fyne.TextStyle{Bold: true}
-
+	// The sidebar names the section; the caption keeps the useful part — which
+	// service manager is backing this (systemd / Windows Services).
 	subtitle := widget.NewLabel(i18n.Tf("View and manage services (%s)", system.ServiceManagerName()))
 
 	searchEntry := widget.NewEntry()
@@ -503,7 +502,6 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	content := container.NewBorder(
 		container.NewPadded(
 			container.NewVBox(
-				title,
 				subtitle,
 				widget.NewSeparator(),
 				container.NewGridWithColumns(3, searchEntry, statusFilter, sortSelect),

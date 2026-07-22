@@ -5,6 +5,7 @@
   "Files": "Файлы",
   "Commands": "Команды",
   "System Info": "О системе",
+  "Tools": "Инструменты",
   "Logs": "Логи",
   "Activity": "История",
   "Report": "Отчёт",
@@ -290,7 +291,6 @@
   "Process killed": "Процесс завершён",
   "That is System Hub itself — closing it would just quit the app.": "Это сам System Hub — его завершение просто закроет приложение.",
 
-  "Diagnostic report": "Диагностический отчёт",
   "Export a snapshot of the system state, favorites and logs": "Экспорт снимка состояния системы, избранного и логов",
   "Status: building the report...": "Статус: сбор отчёта...",
   "Status: could not build the report": "Статус: ошибка сборки отчёта",

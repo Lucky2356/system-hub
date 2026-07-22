@@ -31,9 +31,8 @@ func shortImageID(id string) string {
 }
 
 func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
-	title := widget.NewLabel("Docker")
-	title.TextStyle = fyne.TextStyle{Bold: true}
-
+	// No bold title — the sidebar has it. The caption stays because it flips
+	// between "containers" and "images" with the mode.
 	subtitle := widget.NewLabel(i18n.T("View and manage Docker containers"))
 
 	modeContainers, modeImages := i18n.T("Containers"), i18n.T("Images")
@@ -750,7 +749,6 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	content := container.NewBorder(
 		container.NewPadded(
 			container.NewVBox(
-				title,
 				subtitle,
 				widget.NewSeparator(),
 				modeSelect,

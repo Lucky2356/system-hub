@@ -14,9 +14,7 @@ import (
 )
 
 func buildActivityTab() fyne.CanvasObject {
-	title := widget.NewLabel(i18n.T("Activity"))
-	title.TextStyle = fyne.TextStyle{Bold: true}
-
+	// The inner Tools tab already names this; keep only the caption.
 	subtitle := widget.NewLabel(i18n.T("History of actions performed from the application"))
 
 	searchEntry := widget.NewEntry()
@@ -84,7 +82,6 @@ func buildActivityTab() fyne.CanvasObject {
 
 	content := container.NewBorder(
 		container.NewVBox(
-			title,
 			subtitle,
 			widget.NewSeparator(),
 			searchEntry,

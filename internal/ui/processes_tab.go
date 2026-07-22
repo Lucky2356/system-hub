@@ -31,9 +31,7 @@ const (
 )
 
 func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabel(i18n.T("Processes"))
-	title.TextStyle = fyne.TextStyle{Bold: true}
-
+	// Sidebar names the section; the caption flips with the processes/ports mode.
 	subtitle := widget.NewLabel(i18n.T("View processes and listening ports"))
 
 	modeProcesses, modePorts := i18n.T("Top processes"), i18n.T("Listening ports")
@@ -370,7 +368,6 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 	content := container.NewBorder(
 		container.NewPadded(
 			container.NewVBox(
-				title,
 				subtitle,
 				widget.NewSeparator(),
 				modeSelect,

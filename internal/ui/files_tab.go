@@ -15,9 +15,8 @@ import (
 )
 
 func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabel(i18n.T("Files"))
-	title.TextStyle = fyne.TextStyle{Bold: true}
-
+	// No bold title: the sidebar already names the section. Only the one-line
+	// caption remains, which also trims height — this tab was the tallest.
 	subtitle := widget.NewLabel(i18n.T("Browse important directories and config files"))
 
 	presets := system.GetPresetPaths()
@@ -406,7 +405,6 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 			presetSelect,
 			pathEntry,
 			searchEntry,
-			newToolbarRow(openButton, upButton, viewButton, editButton, reloadButton, saveButton, infoButton, newFileButton, newDirButton, renameButton, deleteButton),
 			statusLabel,
 			widget.NewSeparator(),
 		),
@@ -416,10 +414,15 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 		container.NewPadded(fileList),
 	)
 
+	// The action row spans the full window width up top, not the narrow left
+	// column: eleven buttons wrapped into six rows inside the column and made
+	// this the tallest tab. Across the whole width they fit one or two rows.
+	toolbar := newToolbarRow(openButton, upButton, viewButton, editButton, reloadButton, saveButton, infoButton, newFileButton, newDirButton, renameButton, deleteButton)
+
 	contentContainer := container.NewBorder(
 		container.NewVBox(
-			title,
 			subtitle,
+			toolbar,
 			widget.NewSeparator(),
 		),
 		nil,

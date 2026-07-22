@@ -10,9 +10,7 @@ import (
 )
 
 func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabel(i18n.T("Commands"))
-	title.TextStyle = fyne.TextStyle{Bold: true}
-
+	// The inner Tools tab already names this; keep only the caption.
 	subtitle := widget.NewLabel(i18n.T("Safely run read-only diagnostic commands"))
 
 	commands := system.GetSafeCommands()
@@ -105,7 +103,6 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 
 	content := container.NewBorder(
 		container.NewVBox(
-			title,
 			subtitle,
 			widget.NewSeparator(),
 			widget.NewLabel(i18n.T("Command")),

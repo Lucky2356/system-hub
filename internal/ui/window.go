@@ -16,12 +16,15 @@ import (
 )
 
 // tabKeys names the tabs in the order they are built. The names are also the
-// keys the refresh registry uses, so they must stay stable across languages —
-// only the labels are translated.
+// keys the refresh registry uses (Ctrl+R), so they must stay stable across
+// languages — only the labels are translated.
+//
+// This is the reduced set: the four rarely-used screens (System Info, Commands,
+// Report, Activity) moved into a single "Tools" section, so the sidebar holds
+// the handful of places someone switches between daily.
 var tabKeys = []string{
 	"Dashboard", "Services", "Docker", "Processes",
-	"Files", "Commands", "System Info", "Logs",
-	"Activity", "Report", "Settings",
+	"Logs", "Files", "Tools", "Settings",
 }
 
 func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
@@ -53,21 +56,21 @@ func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 }
 
 func buildWindowContent(a fyne.App, w fyne.Window, cfg config.Config) fyne.CanvasObject {
+	// Icons and a leading (side) tab bar: eleven tabs across the top overflowed
+	// the window — "Settings" was clipped off the right edge at any reasonable
+	// width. A vertical list has room for every entry and its icon.
 	tabs := container.NewAppTabs(
-		container.NewTabItem(i18n.T("Dashboard"), buildDashboardTab(w, cfg)),
-		container.NewTabItem(i18n.T("Services"), buildServicesTab(w, cfg)),
-		container.NewTabItem("Docker", buildDockerTab(w, cfg)),
-		container.NewTabItem(i18n.T("Processes"), buildProcessesTab(w)),
-		container.NewTabItem(i18n.T("Files"), buildFilesTab(w)),
-		container.NewTabItem(i18n.T("Commands"), buildCommandsTab(w)),
-		container.NewTabItem(i18n.T("System Info"), NewSystemInfoTab(w)),
-		container.NewTabItem(i18n.T("Logs"), buildLogsTab(cfg)),
-		container.NewTabItem(i18n.T("Activity"), buildActivityTab()),
-		container.NewTabItem(i18n.T("Report"), buildReportTab(w)),
-		container.NewTabItem(i18n.T("Settings"), buildSettingsTab(w, cfg)),
+		container.NewTabItemWithIcon(i18n.T("Dashboard"), theme.HomeIcon(), buildDashboardTab(w, cfg)),
+		container.NewTabItemWithIcon(i18n.T("Services"), theme.ListIcon(), buildServicesTab(w, cfg)),
+		container.NewTabItemWithIcon("Docker", theme.StorageIcon(), buildDockerTab(w, cfg)),
+		container.NewTabItemWithIcon(i18n.T("Processes"), theme.ComputerIcon(), buildProcessesTab(w)),
+		container.NewTabItemWithIcon(i18n.T("Logs"), theme.DocumentIcon(), buildLogsTab(cfg)),
+		container.NewTabItemWithIcon(i18n.T("Files"), theme.FolderIcon(), buildFilesTab(w)),
+		container.NewTabItemWithIcon(i18n.T("Tools"), theme.GridIcon(), buildToolsTab(w)),
+		container.NewTabItemWithIcon(i18n.T("Settings"), theme.SettingsIcon(), buildSettingsTab(w, cfg)),
 	)
 
-	tabs.SetTabLocation(container.TabLocationTop)
+	tabs.SetTabLocation(container.TabLocationLeading)
 
 	isDark := cfg.Theme != "light"
 

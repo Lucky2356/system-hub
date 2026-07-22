@@ -26,9 +26,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	logSourceServices := i18n.T("Services")
 	const logSourceDocker = "Docker"
 
-	title := widget.NewLabel(i18n.T("Logs"))
-	title.TextStyle = fyne.TextStyle{Bold: true}
-
+	// Sidebar names the section; keep the one-line caption.
 	subtitle := widget.NewLabel(i18n.T("Working with logs: system / services / Docker"))
 
 	sourceSelect := widget.NewSelect(
@@ -509,7 +507,6 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	autoRefresh.SetEnabled(cfg.LogsAutoRefresh)
 
 	header := container.NewVBox(
-		title,
 		subtitle,
 		widget.NewSeparator(),
 		container.NewGridWithColumns(2,

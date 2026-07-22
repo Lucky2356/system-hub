@@ -31,9 +31,7 @@ func parseLogLines(text string) int {
 }
 
 func buildReportTab(parent fyne.Window) fyne.CanvasObject {
-	title := widget.NewLabel(i18n.T("Diagnostic report"))
-	title.TextStyle = fyne.TextStyle{Bold: true}
-
+	// The inner Tools tab already names this; keep only the caption.
 	subtitle := widget.NewLabel(i18n.T("Export a snapshot of the system state, favorites and logs"))
 
 	linesEntry := widget.NewEntry()
@@ -167,7 +165,6 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 
 	content := container.NewBorder(
 		container.NewVBox(
-			title,
 			subtitle,
 			widget.NewSeparator(),
 			widget.NewLabel(i18n.T("Log lines per favorite service/container")),
