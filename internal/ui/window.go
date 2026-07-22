@@ -26,7 +26,10 @@ var tabKeys = []string{
 
 func NewMainWindow(a fyne.App, cfg config.Config) fyne.Window {
 	w := a.NewWindow("System Hub")
-	w.Resize(fyne.NewSize(900, 550))
+	// This now takes effect: the tabs used to force a ~2015px minimum, so any
+	// requested size was ignored. A comfortable default that still fits a
+	// 1366x768 laptop.
+	w.Resize(fyne.NewSize(1100, 720))
 
 	w.SetContent(buildWindowContent(a, w, cfg))
 

@@ -34,7 +34,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder(i18n.T("Filter by file name..."))
 
-	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
+	statusLabel := newDataLabel(i18n.T("Status: waiting"))
 
 	fileContent := widget.NewMultiLineEntry()
 	fileContent.Wrapping = fyne.TextWrapWord
@@ -406,7 +406,7 @@ func buildFilesTab(parent fyne.Window) fyne.CanvasObject {
 			presetSelect,
 			pathEntry,
 			searchEntry,
-			container.NewHBox(openButton, upButton, viewButton, editButton, reloadButton, saveButton, infoButton, newFileButton, newDirButton, renameButton, deleteButton),
+			newToolbarRow(openButton, upButton, viewButton, editButton, reloadButton, saveButton, infoButton, newFileButton, newDirButton, renameButton, deleteButton),
 			statusLabel,
 			widget.NewSeparator(),
 		),

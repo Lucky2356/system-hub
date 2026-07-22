@@ -20,36 +20,37 @@ import (
 )
 
 func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
-	// The app name lives in the window header; the tab only needs a caption.
-	subtitle := widget.NewLabel(i18n.T("System overview: CPU / RAM / disk / network / services / Docker"))
+	// The verdict leads the tab: "is anything wrong" is the question a monitor
+	// is opened to answer, and it used to be the third row down.
+	verdictLabel := widget.NewLabel(i18n.T("Checking for problems..."))
+	verdictLabel.TextStyle = fyne.TextStyle{Bold: true}
 
-	cpuValueLabel := widget.NewLabel("CPU: ...")
+	cpuValueLabel := newDataLabel("CPU: ...")
 	cpuBar := widget.NewProgressBar()
 
-	ramValueLabel := widget.NewLabel("RAM: ...")
-	ramDetailsLabel := widget.NewLabel("...")
+	ramValueLabel := newDataLabel("RAM: ...")
+	ramDetailsLabel := newDataLabel("...")
 	ramBar := widget.NewProgressBar()
 
-	diskValueLabel := widget.NewLabel(i18n.T("Disk") + ": ...")
-	diskDetailsLabel := widget.NewLabel("...")
+	diskValueLabel := newDataLabel(i18n.T("Disk") + ": ...")
+	diskDetailsLabel := newDataLabel("...")
 	diskBar := widget.NewProgressBar()
 
-	uptimeLabel := widget.NewLabel(i18n.T("Uptime") + ": ...")
-	systemdLabel := widget.NewLabel(system.ServiceManagerName() + ": ...")
-	dockerLabel := widget.NewLabel("Docker: ...")
+	uptimeLabel := newDataLabel(i18n.T("Uptime") + ": ...")
+	systemdLabel := newDataLabel(system.ServiceManagerName() + ": ...")
+	dockerLabel := newDataLabel("Docker: ...")
 
-	serviceCountLabel := widget.NewLabel(i18n.T("Services") + ": ...")
-	dockerCountLabel := widget.NewLabel(i18n.T("Containers") + ": ...")
-	dockerRunningLabel := widget.NewLabel(i18n.T("Running") + ": ...")
+	serviceCountLabel := newDataLabel(i18n.T("Services") + ": ...")
+	dockerCountLabel := newDataLabel(i18n.T("Containers") + ": ...")
+	dockerRunningLabel := newDataLabel(i18n.T("Running") + ": ...")
 
 	favoriteServicesBox := container.NewVBox(widget.NewLabel(i18n.T("No favorite services")))
 	favoriteContainersBox := container.NewVBox(widget.NewLabel(i18n.T("No favorite containers")))
-	problemsLabel := widget.NewLabel(i18n.T("Checking for problems..."))
-	topProcessesLabel := widget.NewLabel(i18n.T("Loading the process list..."))
-	topProcessesLabel.Wrapping = fyne.TextWrapWord
+	problemsLabel := newWrappingDataLabel(i18n.T("Checking for problems..."))
+	topProcessesLabel := newWrappingDataLabel(i18n.T("Loading the process list..."))
 
-	recvLabel := widget.NewLabel("RX: ...")
-	sentLabel := widget.NewLabel("TX: ...")
+	recvLabel := newDataLabel("RX: ...")
+	sentLabel := newDataLabel("TX: ...")
 
 	// CPU and RAM are percentages, so they are pinned to a 0-100 scale: a flat
 	// 5% load must look flat. Network has no ceiling, so it scales to its own
@@ -61,17 +62,11 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 
 	perCPUBars := container.NewVBox(widget.NewLabel(i18n.T("Loading per-core data...")))
 
-	tempLabel := widget.NewLabel(i18n.T("Loading temperatures..."))
-	tempLabel.Wrapping = fyne.TextWrapWord
-	fanLabel := widget.NewLabel("")
-	fanLabel.Wrapping = fyne.TextWrapWord
-	voltageLabel := widget.NewLabel("")
-	voltageLabel.Wrapping = fyne.TextWrapWord
+	tempLabel := newWrappingDataLabel(i18n.T("Loading temperatures..."))
+	fanLabel := newWrappingDataLabel("")
+	voltageLabel := newWrappingDataLabel("")
 
-	problemsLabel.Wrapping = fyne.TextWrapWord
-	topProcessesLabel.Wrapping = fyne.TextWrapWord
-
-	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
+	statusLabel := newDataLabel(i18n.T("Status: waiting"))
 
 	makeStatusText := func(status string) *canvas.Text {
 		text := canvas.NewText(status, StatusColor(status))
@@ -84,7 +79,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	var refreshStats func(heavy bool)
 
 	refreshButtonTapped := func() {
-		go refreshStats(true)
+		startInitialLoad(func() { refreshStats(true) })
 	}
 
 	buildFavoriteServiceRows := func() []fyne.CanvasObject {
@@ -513,11 +508,7 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 			appstate.GetConfig().FavoriteServices,
 			appstate.GetConfig().FavoriteContainers,
 		)
-		if len(problems) == 0 {
-			problemsLabel.SetText(i18n.T("No problems detected"))
-		} else {
-			problemsLabel.SetText(joinLines(problems))
-		}
+		updateVerdict(verdictLabel, problemsLabel, problems)
 
 		notifyProblems(problems)
 		topProcesses, err := system.ListTopProcesses(5)
@@ -560,139 +551,102 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 		refreshButtonTapped()
 	})
 
-	cpuCard := NewStatCard(
-		"CPU",
-		i18n.T("Current processor load"),
-		container.NewVBox(
-			cpuValueLabel,
-			cpuBar,
-			cpuChart.object(),
-		),
-	)
+	// The verdict answers "is anything wrong" before any number does. When
+	// nothing is wrong it stays one quiet line rather than an empty panel.
+	verdictCard := NewStatCard("", "", container.NewVBox(verdictLabel, problemsLabel))
 
-	ramCard := NewStatCard(
-		"RAM",
-		i18n.T("Memory usage"),
-		container.NewVBox(
-			ramValueLabel,
-			ramBar,
-			ramDetailsLabel,
-			ramChart.object(),
-		),
-	)
+	// No captions on the tiles: "CPU" needs no explanation that it is the
+	// processor load, and the caption was both noise and — because a Card sizes
+	// itself to its title and subtitle — the thing that made these cards 490px
+	// wide for one line of content.
+	cpuCard := NewTile("CPU", container.NewVBox(
+		cpuValueLabel,
+		cpuBar,
+		cpuChart.object(),
+	))
 
-	diskCard := NewStatCard(
-		i18n.T("Disk"),
-		i18n.T("Disk usage"),
-		container.NewVBox(
-			diskValueLabel,
-			diskBar,
-			diskDetailsLabel,
-		),
-	)
+	ramCard := NewTile("RAM", container.NewVBox(
+		ramValueLabel,
+		ramBar,
+		ramDetailsLabel,
+	))
 
-	uptimeCard := NewStatCard(
-		i18n.T("Uptime"),
-		i18n.T("How long the system has been running"),
-		container.NewVBox(
-			uptimeLabel,
-		),
-	)
+	diskCard := NewTile(i18n.T("Disk"), container.NewVBox(
+		diskValueLabel,
+		diskBar,
+		diskDetailsLabel,
+	))
 
-	servicesCard := NewStatCard(
-		i18n.T("Services"),
-		i18n.T("Service status and count"),
-		container.NewVBox(
-			systemdLabel,
-			serviceCountLabel,
-		),
-	)
+	uptimeCard := NewTile(i18n.T("Uptime"), container.NewVBox(
+		uptimeLabel,
+	))
 
-	dockerCard := NewStatCard(
-		"Docker",
-		i18n.T("Container status and count"),
-		container.NewVBox(
-			dockerLabel,
-			dockerCountLabel,
-			dockerRunningLabel,
-		),
-	)
+	servicesCard := NewTile(i18n.T("Services"), container.NewVBox(
+		systemdLabel,
+		serviceCountLabel,
+	))
 
-	favoriteServicesCard := NewStatCard(
-		i18n.T("Favorite services"),
-		i18n.T("Quick actions for important services"),
-		favoriteServicesBox,
-	)
+	dockerCard := NewTile("Docker", container.NewVBox(
+		dockerLabel,
+		dockerCountLabel,
+		dockerRunningLabel,
+	))
 
-	favoriteContainersCard := NewStatCard(
-		i18n.T("Favorite containers"),
-		i18n.T("Quick actions for important containers"),
-		favoriteContainersBox,
-	)
+	favoriteServicesCard := NewTile(i18n.T("Favorite services"), container.NewVScroll(favoriteServicesBox))
+	favoriteContainersCard := NewTile(i18n.T("Favorite containers"), container.NewVScroll(favoriteContainersBox))
 
-	problemsCard := NewStatCard(
-		i18n.T("Problems"),
-		i18n.T("Problems that need attention"),
-		container.NewVBox(
-			problemsLabel,
-		),
-	)
+	topProcessesCard := NewTile(i18n.T("Top processes"), container.NewVScroll(
+		container.NewVBox(topProcessesLabel),
+	))
 
-	topProcessesCard := NewStatCard(
-		i18n.T("Top processes"),
-		i18n.T("The heaviest processes by CPU"),
-		container.NewVBox(
-			topProcessesLabel,
-		),
-	)
+	networkCard := NewTile(i18n.T("Network"), container.NewVBox(
+		recvLabel,
+		netRecvChart.object(),
+		sentLabel,
+		netSentChart.object(),
+	))
 
-	networkCard := NewStatCard(
-		i18n.T("Network"),
-		i18n.T("Data sent / received"),
-		container.NewVBox(
-			recvLabel,
-			netRecvChart.object(),
-			sentLabel,
-			netSentChart.object(),
-		),
-	)
+	perCPUCard := NewTile(i18n.T("CPU cores"), container.NewVScroll(perCPUBars))
 
-	perCPUCard := NewStatCard(
-		i18n.T("CPU cores"),
-		i18n.T("Load on each processor core"),
-		container.NewVBox(
-			perCPUBars,
-		),
-	)
-
-	tempCard := NewStatCard(
-		i18n.T("Temperature"),
-		i18n.T("CPU/GPU temperature"),
+	tempCard := NewTile(i18n.T("Temperature"), container.NewVScroll(
 		container.NewVBox(tempLabel, fanLabel, voltageLabel),
+	))
+
+	// GridWrap reflows the tiles to the available width and reports a single
+	// cell as its minimum, so the dashboard no longer decides how wide the whole
+	// window must be. GridWithColumns(4) reported four cards side by side —
+	// 1165px — and because AppTabs takes the max over every tab, that was the
+	// floor for the entire app.
+	//
+	// The cells are fixed, so anything inside must fit one: that is why the tile
+	// labels truncate and the cards carry no captions. An earlier attempt at
+	// GridWrap overlapped for exactly that reason.
+	metricsGrid := container.NewGridWrap(dashboardTileSize,
+		cpuCard, ramCard, diskCard, uptimeCard, networkCard, servicesCard, dockerCard,
 	)
 
-	// GridWithColumns sizes each row to its tallest card, so content cannot
-	// overlap its neighbours. The whole tab is inside a VScroll, which handles
-	// narrow windows.
-	metricsGrid := container.NewGridWithColumns(4, cpuCard, ramCard, diskCard, uptimeCard)
-	statusGrid := container.NewGridWithColumns(3, servicesCard, dockerCard, networkCard)
-	detailGrid := container.NewGridWithColumns(2,
-		problemsCard, tempCard,
+	favoritesGrid := container.NewGridWrap(dashboardPanelSize,
 		favoriteServicesCard, favoriteContainersCard,
-		topProcessesCard, perCPUCard,
+	)
+
+	// Details are for when something already looks wrong, so they start folded
+	// away rather than competing with the verdict.
+	details := widget.NewAccordion(
+		widget.NewAccordionItem(i18n.T("Details"),
+			container.NewGridWrap(dashboardPanelSize, tempCard, perCPUCard, topProcessesCard),
+		),
 	)
 
 	content := container.NewVBox(
-		subtitle,
-		widget.NewSeparator(),
+		verdictCard,
 		metricsGrid,
-		statusGrid,
-		detailGrid,
+		favoritesGrid,
+		details,
 		widget.NewSeparator(),
 		container.NewHBox(refreshButton, statusLabel),
 	)
 
-	go refreshStats(true)
+	startInitialLoad(func() { refreshStats(true) })
 
 	// Heavy metrics (systemctl/docker listing, full process scan, sensors) are
 	// refreshed at most every ~5s regardless of the light poll rate, so the
@@ -719,6 +673,28 @@ func buildDashboardTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject 
 	// Wrap in a vertical scroll so the dashboard grid does not clip on small
 	// windows.
 	return container.NewVScroll(container.NewPadded(content))
+}
+
+// updateVerdict renders the headline answer to "is anything wrong".
+//
+// A healthy system gets one quiet line and no list — the previous design showed
+// a "Problems" panel that was mostly empty space, and buried it in the third
+// row where it was found last rather than first.
+func updateVerdict(verdict, details *widget.Label, problems []string) {
+	if len(problems) == 0 {
+		verdict.SetText(i18n.T("No problems detected"))
+		verdict.Importance = widget.SuccessImportance
+		details.SetText("")
+		details.Hide()
+	} else {
+		verdict.SetText(i18n.Tf("Problems: %d", len(problems)))
+		verdict.Importance = widget.DangerImportance
+		details.SetText(joinLines(problems))
+		details.Show()
+	}
+
+	verdict.Refresh()
+	details.Refresh()
 }
 
 // latestRecvRate and latestSentRate read the most recent network rate, or 0

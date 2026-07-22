@@ -35,7 +35,7 @@ func buildCommandsTab(parent fyne.Window) fyne.CanvasObject {
 	argEntry := widget.NewEntry()
 	argEntry.SetPlaceHolder(i18n.T("Argument"))
 
-	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
+	statusLabel := newDataLabel(i18n.T("Status: waiting"))
 
 	outputEntry := widget.NewMultiLineEntry()
 	outputEntry.Wrapping = fyne.TextWrapWord

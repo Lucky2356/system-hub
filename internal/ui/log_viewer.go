@@ -26,7 +26,7 @@ func showLogsWindow(
 	logEntry.Wrapping = fyne.TextWrapOff
 	logEntry.Disable()
 
-	infoLabel := widget.NewLabel(i18n.T("Logs are not loaded yet"))
+	infoLabel := newDataLabel(i18n.T("Logs are not loaded yet"))
 	autoRefreshCheck := widget.NewCheck(
 		i18n.Tf("Auto-refresh (%d s)", cfg.RefreshIntervalSeconds),
 		nil,
@@ -52,7 +52,7 @@ func showLogsWindow(
 		level := strings.TrimSpace(levelSelect.Selected)
 
 		if strings.TrimSpace(rawLogs) == "" {
-			logEntry.SetText("")
+			setTextIfChanged(logEntry, "")
 			return
 		}
 
@@ -84,7 +84,11 @@ func showLogsWindow(
 			}
 		}
 
-		logEntry.SetText(strings.Join(filtered, "\n"))
+		// Only touch the widget when the text actually changed. Follow mode
+		// re-reads the log every second; unconditionally calling SetText reset
+		// the scroll position on every tick, so the view jumped away from
+		// wherever the user was reading.
+		setTextIfChanged(logEntry, strings.Join(filtered, "\n"))
 	}
 
 	loadLogs := func() {
@@ -152,7 +156,10 @@ func showLogsWindow(
 		container.NewVBox(
 			widget.NewLabel(header),
 			widget.NewSeparator(),
-			container.NewHBox(refreshButton, followButton, autoRefreshCheck),
+			container.NewVBox(
+				newToolbarRow(refreshButton, followButton),
+				autoRefreshCheck,
+			),
 			container.NewGridWithColumns(2,
 				container.NewVBox(
 					widget.NewLabel(i18n.T("Search")),

@@ -26,7 +26,7 @@ func NewSystemInfoTab(w fyne.Window) fyne.CanvasObject {
 		widget.NewFormItem(i18n.T("Go version"), widget.NewLabel("")),
 	)
 
-	statusLabel := widget.NewLabel("")
+	statusLabel := newDataLabel("")
 
 	var lastInfo system.HostInfo
 

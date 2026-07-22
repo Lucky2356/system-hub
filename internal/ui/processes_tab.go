@@ -60,7 +60,7 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 
 	selectedSortKey := func() string { return sortKeys[sortSelect.Selected] }
 
-	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
+	statusLabel := newDataLabel(i18n.T("Status: waiting"))
 
 	autoRefreshCheck := widget.NewCheck(
 		i18n.Tf("Auto-refresh (%d s)", appstate.GetConfig().RefreshIntervalSeconds),
@@ -337,9 +337,12 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 					err := system.KillProcess(pid)
 					fyne.Do(func() {
 						if err != nil {
-							if system.IsPermissionError(err) {
+							switch {
+							case system.IsSelfKill(err):
+								ShowErrorMsg(parent, i18n.T("That is System Hub itself — closing it would just quit the app."))
+							case system.IsPermissionError(err):
 								ShowErrorMsg(parent, i18n.T("Not enough permissions to kill the process"))
-							} else {
+							default:
 								ShowError(parent, err)
 							}
 							return
@@ -354,7 +357,7 @@ func buildProcessesTab(parent fyne.Window) fyne.CanvasObject {
 	}
 
 	refreshButton := widget.NewButton(i18n.T("Refresh"), func() {
-		go refreshData()
+		startInitialLoad(refreshData)
 	})
 
 	toolbar := container.NewHBox(

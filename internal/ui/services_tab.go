@@ -46,7 +46,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	sortSelect := widget.NewSelect([]string{sortByName, sortByStatus}, nil)
 	sortSelect.SetSelected(sortByName)
 
-	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
+	statusLabel := newDataLabel(i18n.T("Status: waiting"))
 
 	var allServices []system.ServiceInfo
 	var filteredServices []system.ServiceInfo
@@ -483,21 +483,21 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	}
 
 	refreshButton := widget.NewButtonWithIcon(i18n.T("Refresh"), theme.ViewRefreshIcon(), func() {
-		go refreshServices()
+		startInitialLoad(refreshServices)
 	})
 
-	// Two rows: lifecycle actions the user reaches for most, then the
-	// inspection/bookkeeping actions. Eleven buttons on one line did not fit
-	// the default window width.
-	actionsRow := container.NewHBox(
+	// Lifecycle actions the user reaches for most, then the inspection and
+	// bookkeeping ones. Both wrap rather than forcing the window wide enough to
+	// hold every button on one line.
+	actionsRow := newToolbarRow(
 		startButton, stopButton, restartButton,
-		widget.NewSeparator(),
 		enableButton, disableButton,
 	)
-	secondaryRow := container.NewHBox(
-		favoriteButton, detailsButton, logsButton, openUnitButton,
-		widget.NewSeparator(),
-		refreshButton, autoRefreshCheck,
+	secondaryRow := container.NewVBox(
+		newToolbarRow(
+			favoriteButton, detailsButton, logsButton, openUnitButton, refreshButton,
+		),
+		autoRefreshCheck,
 	)
 
 	content := container.NewBorder(
@@ -519,7 +519,7 @@ func buildServicesTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		container.NewPadded(serviceList),
 	)
 
-	go refreshServices()
+	startInitialLoad(refreshServices)
 	RegisterRefresh("Services", refreshServices)
 
 	return content

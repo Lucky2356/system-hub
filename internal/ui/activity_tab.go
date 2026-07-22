@@ -22,7 +22,7 @@ func buildActivityTab() fyne.CanvasObject {
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder(i18n.T("Filter: nginx, docker, restart..."))
 
-	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
+	statusLabel := newDataLabel(i18n.T("Status: waiting"))
 
 	logOutput := widget.NewMultiLineEntry()
 	logOutput.Wrapping = fyne.TextWrapWord

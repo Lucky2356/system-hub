@@ -67,7 +67,7 @@ func buildSettingsTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		configPath = i18n.T("unavailable")
 	}
 
-	statusLabel := widget.NewLabel(i18n.T("Change the settings and press «Save settings»"))
+	statusLabel := newDataLabel(i18n.T("Change the settings and press «Save settings»"))
 
 	saveButton := widget.NewButton(i18n.T("Save settings"), func() {
 		refreshInterval, err := strconv.Atoi(strings.TrimSpace(refreshIntervalEntry.Text))

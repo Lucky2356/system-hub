@@ -39,7 +39,7 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 	linesEntry := widget.NewEntry()
 	linesEntry.SetText("100")
 
-	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
+	statusLabel := newDataLabel(i18n.T("Status: waiting"))
 
 	reportOutput := widget.NewMultiLineEntry()
 	reportOutput.Wrapping = fyne.TextWrapWord
@@ -172,7 +172,7 @@ func buildReportTab(parent fyne.Window) fyne.CanvasObject {
 			widget.NewSeparator(),
 			widget.NewLabel(i18n.T("Log lines per favorite service/container")),
 			linesEntry,
-			container.NewHBox(buildButton, bundleButton, saveButton, quickSaveButton),
+			newToolbarRow(buildButton, bundleButton, saveButton, quickSaveButton),
 			statusLabel,
 			widget.NewSeparator(),
 		),

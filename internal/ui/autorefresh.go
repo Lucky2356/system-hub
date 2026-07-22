@@ -4,6 +4,7 @@ package ui
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Lucky2356/system-hub/internal/appstate"
@@ -21,6 +22,13 @@ type autoRefresher struct {
 	stop     chan struct{}
 	refresh  func()
 	interval func() time.Duration
+
+	// inFlight drops a tick whose predecessor has not finished. A dashboard
+	// heavy tick lists 315 services, runs docker ps and docker stats (~1s on its
+	// own) and scans every process; without this, a slow tick would let the next
+	// one start on top of it and the goroutines would pile up. Only the log tab
+	// guarded against this before, by hand.
+	inFlight atomic.Bool
 }
 
 // newAutoRefresher refreshes on the interval configured in Settings, re-read on
@@ -87,9 +95,23 @@ func (a *autoRefresher) loop(stop chan struct{}) {
 				current = next
 				ticker.Reset(next)
 			}
-			go a.refresh()
+			a.runOnce()
 		case <-stop:
 			return
 		}
 	}
+}
+
+// runOnce refreshes unless the previous refresh is still running, in which case
+// the tick is skipped. Skipping is correct here: every refresh reads the full
+// current state, so a dropped tick loses nothing — the next one shows the same
+// thing a moment later.
+func (a *autoRefresher) runOnce() {
+	if !a.inFlight.CompareAndSwap(false, true) {
+		return
+	}
+	go func() {
+		defer a.inFlight.Store(false)
+		a.refresh()
+	}()
 }

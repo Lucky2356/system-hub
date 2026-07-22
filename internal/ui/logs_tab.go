@@ -50,8 +50,8 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 	levelSelect := widget.NewSelect([]string{levelAll, levelErrors, levelWarnings, levelInfo}, nil)
 	levelSelect.SetSelected(levelAll)
 
-	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
-	infoLabel := widget.NewLabel("")
+	statusLabel := newDataLabel(i18n.T("Status: waiting"))
+	infoLabel := newDataLabel("")
 
 	logEntry := widget.NewMultiLineEntry()
 	logEntry.Wrapping = fyne.TextWrapOff
@@ -123,7 +123,7 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 		level := strings.TrimSpace(levelSelect.Selected)
 
 		if strings.TrimSpace(rawLogs) == "" {
-			logEntry.SetText("")
+			setTextIfChanged(logEntry, "")
 			return
 		}
 
@@ -155,7 +155,9 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 			}
 		}
 
-		logEntry.SetText(strings.Join(filtered, "\n"))
+		// Follow mode re-runs this every second; only write when the text
+		// changed, so the scroll position holds instead of snapping to the top.
+		setTextIfChanged(logEntry, strings.Join(filtered, "\n"))
 	}
 
 	updateTargetState := func() {
@@ -534,7 +536,10 @@ func buildLogsTab(cfg config.Config) fyne.CanvasObject {
 				levelSelect,
 			),
 		),
-		container.NewHBox(refreshButton, reloadSourcesButton, copyButton, saveButton, followButton, autoRefreshCheck),
+		container.NewVBox(
+			newToolbarRow(refreshButton, reloadSourcesButton, copyButton, saveButton, followButton),
+			autoRefreshCheck,
+		),
 		statusLabel,
 		infoLabel,
 		widget.NewSeparator(),

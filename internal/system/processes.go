@@ -1,7 +1,9 @@
 package system
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -110,12 +112,29 @@ func KillProcess(pid int32) error {
 		return fmt.Errorf("cannot kill PID 1 (init system)")
 	}
 
+	// System Hub lists its own process, so a stray click could kill the app from
+	// inside itself — which looks exactly like a crash. Refuse it with a reason
+	// the UI can show.
+	if pid == int32(os.Getpid()) {
+		return errSelfKill
+	}
+
 	p, err := process.NewProcess(pid)
 	if err != nil {
 		return err
 	}
 
 	return p.Kill()
+}
+
+// errSelfKill is returned when the target is System Hub itself. It is a
+// sentinel so the UI can recognise it and phrase the refusal, rather than
+// surfacing a raw OS error.
+var errSelfKill = errors.New("refusing to kill System Hub's own process")
+
+// IsSelfKill reports whether err is the refusal to kill the app's own process.
+func IsSelfKill(err error) bool {
+	return errors.Is(err, errSelfKill)
 }
 
 func ListTopProcesses(limit int) ([]ProcessUsageInfo, error) {

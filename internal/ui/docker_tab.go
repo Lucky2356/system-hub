@@ -61,7 +61,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	sortSelect := widget.NewSelect([]string{sortByName, sortByStatus}, nil)
 	sortSelect.SetSelected(sortByName)
 
-	statusLabel := widget.NewLabel(i18n.T("Status: waiting"))
+	statusLabel := newDataLabel(i18n.T("Status: waiting"))
 
 	var allContainers []system.DockerContainerInfo
 	var filteredContainers []system.DockerContainerInfo
@@ -401,7 +401,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		if isImagesMode() {
 			go refreshImages()
 		} else {
-			go refreshContainers()
+			startInitialLoad(refreshContainers)
 		}
 	}
 
@@ -721,21 +721,25 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 	}
 
 	refreshButton := widget.NewButton(i18n.T("Refresh"), func() {
-		go refreshData()
+		startInitialLoad(refreshData)
 	})
 
-	actionsRow := container.NewHBox(
-		refreshButton,
+	// The checkbox stays out of the grid: its caption is far longer than a button
+	// and it would stretch every cell to match.
+	actionsRow := container.NewVBox(
+		newToolbarRow(
+			refreshButton,
+			favoriteButton,
+			detailsButton,
+			inspectButton,
+			logsButton,
+			startButton,
+			stopButton,
+			restartButton,
+			pullButton,
+			removeImageButton,
+		),
 		autoRefreshCheck,
-		favoriteButton,
-		detailsButton,
-		inspectButton,
-		logsButton,
-		startButton,
-		stopButton,
-		restartButton,
-		pullButton,
-		removeImageButton,
 	)
 
 	// The tab opens in Containers mode, so show that mode's buttons. This used
@@ -763,7 +767,7 @@ func buildDockerTab(parent fyne.Window, cfg config.Config) fyne.CanvasObject {
 		container.NewPadded(containerList),
 	)
 
-	go refreshContainers()
+	startInitialLoad(refreshContainers)
 	RegisterRefresh("Docker", refreshData)
 
 	return content
