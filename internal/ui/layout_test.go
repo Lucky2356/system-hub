@@ -24,7 +24,10 @@ import (
 // this and matches what the running app does: the live window refused to go
 // below 2015px, and that number is explained exactly by the untruncated labels
 // this test now guards.
-const maxTabWidth = 1000
+const (
+	maxTabWidth     = 1000
+	maxWindowHeight = 768
+)
 
 // TestEveryTabFitsASmallWindow is the regression test for the defect that made
 // the app unusable: the window could not be made narrower than 2015px — wider
@@ -84,6 +87,15 @@ func TestWindowFitsASmallScreen(t *testing.T) {
 
 	if min.Width > maxTabWidth {
 		t.Errorf("the window needs %.0fpx of width; the budget is %d", min.Width, maxTabWidth)
+	}
+
+	// Height is asserted here but not per-tab: the assembled window measures
+	// once and is stable, whereas a tab measured in isolation hits the
+	// non-idempotent RichText MinSize (see the note on maxTabWidth). 768 is a
+	// common laptop height. The live GLFW driver inflates this by re-measuring
+	// during real rendering, but the structural layout has to fit first.
+	if min.Height > maxWindowHeight {
+		t.Errorf("the window needs %.0fpx of height; the budget is %d", min.Height, maxWindowHeight)
 	}
 }
 
