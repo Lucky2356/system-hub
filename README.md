@@ -75,6 +75,22 @@ make build VERSION=v0.3.0        # or: go build -o system-hub ./cmd/system-hub
 ./system-hub --version
 ```
 
+### Develop in the cloud (Codespaces)
+
+You don't need a local toolchain. The repo ships a [dev container](.devcontainer/),
+so **Code → Codespaces → Create codespace** on GitHub gives you a browser IDE with
+Go and the Fyne build libraries already installed. `go build ./...` and
+`go test ./...` work out of the box. The GUI itself needs a display; to exercise
+the window headlessly, wrap the run in the bundled virtual X server:
+
+```bash
+xvfb-run go test ./...
+```
+
+Releases are cut entirely on GitHub's runners — push a `vX.Y.Z` tag, or run the
+**Release** workflow manually from the Actions tab — so no build ever has to run
+on your own machine.
+
 ## Packaging
 
 Build artifacts are produced by CI (`.github/workflows/release.yml`) on a `vX.Y.Z`
